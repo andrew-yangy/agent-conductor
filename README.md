@@ -1,18 +1,27 @@
 # Agent Conductor
 
-A real-time dashboard for monitoring and managing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agent teams. See what every agent is doing, approve prompts from the browser, and get notified when agents need attention.
+A real-time dashboard for monitoring [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. See all your sessions across every project, track agent teams, approve prompts from the browser, and clean up stale resources.
 
 ![Dashboard](https://img.shields.io/badge/status-alpha-orange) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue) ![React](https://img.shields.io/badge/React-19-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
+![Demo](docs/demo.gif)
+
 ## Why
 
-When running Claude Code agent teams (`/team-build`), you end up with multiple agents working in parallel across tmux panes. Switching between panes to check status, approve prompts, and track progress is tedious. Agent Conductor gives you a single dashboard to see everything at once.
+Claude Code stores session logs, team configs, and task lists under `~/.claude/` — but there's no built-in way to see what's happening across all your sessions. If you're running multiple projects, using agent teams, or just want to know which sessions are still active, you're left checking individual terminal tabs.
+
+Agent Conductor reads directly from `~/.claude/` and gives you a single dashboard with:
+
+- Every session across all projects, organized in a tree
+- Real-time activity (which tool is running, what file is being edited)
+- Agent team status and task progress
+- The ability to send input and approve prompts without switching windows
 
 ## Features
 
-- **Session discovery** — automatically finds all Claude Code sessions by scanning `~/.claude/projects/` JSONL files. No configuration needed.
-- **Live activity** — see what each agent is doing in real-time (editing files, running commands, thinking)
-- **Session tree** — sessions grouped by project, with subagents nested under their parent
+- **Automatic session discovery** — scans `~/.claude/projects/` JSONL files on disk. No hooks or configuration required.
+- **Live activity** — see what each session is doing in real-time (editing files, running commands, thinking)
+- **Project tree view** — sessions grouped by project, subagents nested under their parent, with time and status filters
 - **Team monitoring** — track team members, task progress, and agent status
 - **Send input** — approve/reject prompts and send text to agents directly from the dashboard
 - **Stale team cleanup** — delete old teams and task lists with one click
@@ -31,32 +40,41 @@ Open [http://localhost:5173](http://localhost:5173). The server runs on port 444
 
 That's it. Agent Conductor automatically discovers your Claude Code sessions from `~/.claude/`.
 
-## How It Works
-
-Agent Conductor watches the Claude Code data directory (`~/.claude/`) for changes:
+## Architecture
 
 ```
-~/.claude/
-  projects/           # Session JSONL logs (primary data source)
-    {project}/
-      {session}.jsonl  # Each Claude Code session
-      {session}/subagents/agent-*.jsonl
-  teams/              # Team configs (from /team-build)
-  tasks/              # Task lists
+~/.claude/                          Agent Conductor
+┌─────────────────────┐            ┌──────────────────────────────────────┐
+│ projects/           │            │                                      │
+│   {project}/        │  chokidar  │  ┌──────────────┐   ┌────────────┐  │
+│     {uuid}.jsonl  ──┼──watch────>│  │   Session     │──>│            │  │
+│     {uuid}/         │            │  │   Scanner     │   │ Aggregator │  │
+│       subagents/    │            │  └──────────────┘   │            │  │
+│         agent-*.jsonl            │                      │  merges    │  │
+│                     │            │  ┌──────────────┐   │  sources   │  │
+│ teams/              │  read      │  │   Team &     │──>│  into      │  │
+│   {team}/config.json├──────────>│  │   Task       │   │  state     │  │
+│                     │            │  │   Parsers    │   │            │  │
+│ tasks/              │  read      │  └──────────────┘   └─────┬──────┘  │
+│   {team}/*.json   ──┼──────────>│                            │         │
+└─────────────────────┘            │                       WebSocket     │
+                                   │                            │         │
+  ┌─────────────┐                  │                     ┌──────▼──────┐  │
+  │ Hook events │   POST           │                     │   React     │  │
+  │ (optional)  ├──/api/events───>│  enrich status ────>│   Dashboard │  │
+  └─────────────┘                  │                     └─────────────┘  │
+                                   └──────────────────────────────────────┘
 ```
 
-**Architecture:**
+**How data flows:**
 
-```
-JSONL files ──> File watchers (chokidar) ──> Aggregator ──> WebSocket ──> React dashboard
-                                                  ↑
-                                            Hook events (optional enrichment)
-```
+1. **Session Scanner** watches `~/.claude/projects/` for JSONL files. For active sessions (modified < 30s ago), it tail-reads the last 8KB to extract metadata (model, git branch, cwd, tools in use). Inactive sessions use file path info only — safe for directories with hundreds of sessions.
 
-- **Sessions** are discovered by scanning JSONL files on disk. Active sessions (file modified < 30s ago) get their metadata extracted via tail-read (last 8KB only — safe for large files).
-- **Activity** is parsed from the last JSONL entries — which tool is running, what file is being edited.
-- **Teams** are read from `~/.claude/teams/*/config.json`.
-- **Hook events** (if configured) enrich session status with waiting/error states.
+2. **Team & Task Parsers** read team configs from `~/.claude/teams/` and task lists from `~/.claude/tasks/`. Subagent relationships are built from the file structure (`{uuid}/subagents/agent-{id}.jsonl`).
+
+3. **Aggregator** merges all sources into a single state object. Filesystem scanning is the primary source; hook events optionally enrich session status (waiting for approval, errors) within a 5-minute window.
+
+4. **WebSocket** pushes state updates to the React dashboard in real-time. File watchers use debounced timers (500ms for activity, 1s for session refresh) to avoid overwhelming the client.
 
 ## Configuration
 
