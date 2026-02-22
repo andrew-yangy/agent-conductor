@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const ACTIVE_WINDOW_MS = 30_000;
 const TAIL_SIZE = 8192;
+const PROMPT_TAIL_SIZE = 65536;
 const HEAD_SIZE = 16384;
 const TASKS_UUID_RE = /\.claude\/tasks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
@@ -16,6 +17,7 @@ export interface ScannedSession {
   version?: string;
   slug?: string;
   initialPrompt?: string;
+  latestPrompt?: string;
   tasksId?: string;
   lastActivity: string;
   active: boolean;
@@ -154,12 +156,91 @@ function extractInitialPrompt(filepath: string): string | undefined {
   return undefined;
 }
 
+function isSystemContent(text: string): boolean {
+  const trimmed = text.trim();
+  // Content that is entirely wrapped in system tags
+  if (/^<system-reminder>[\s\S]*<\/system-reminder>$/.test(trimmed)) return true;
+  if (/^<task-notification>[\s\S]*<\/task-notification>$/.test(trimmed)) return true;
+  // Common system-injected lines that aren't user prompts
+  if (trimmed.startsWith('Shell cwd was reset to')) return true;
+  if (trimmed.startsWith('Called the ') && trimmed.includes(' tool with')) return true;
+  if (trimmed.startsWith('Result of calling the ')) return true;
+  if (trimmed.startsWith('This session is being continued from a previous conversation')) return true;
+  return false;
+}
+
+function extractLatestPrompt(filepath: string): string | undefined {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(filepath, 'r');
+    const stat = fs.fstatSync(fd);
+    if (stat.size === 0) {
+      fs.closeSync(fd);
+      return undefined;
+    }
+
+    // Read in expanding chunks from the end until we find a user text message
+    const chunkSize = PROMPT_TAIL_SIZE;
+    const maxRead = Math.min(stat.size, chunkSize * 8); // cap at ~512KB
+    let offset = stat.size;
+
+    while (offset > stat.size - maxRead && offset > 0) {
+      const readSize = Math.min(chunkSize, offset);
+      offset -= readSize;
+      const buffer = Buffer.allocUnsafe(readSize);
+      fs.readSync(fd, buffer, 0, readSize, offset);
+      const content = buffer.toString('utf-8');
+      const lines = content.split('\n');
+      // Skip first line (likely partial) unless we're at the start
+      const startIdx = offset > 0 ? 1 : 0;
+
+      for (let i = lines.length - 1; i >= startIdx; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        try {
+          const entry = JSON.parse(line) as HeadEntry;
+          if (entry.type !== 'user' && entry.message?.role !== 'user') continue;
+
+          const msgContent = entry.message?.content;
+          if (typeof msgContent === 'string' && msgContent.trim().length > 0) {
+            if (isSystemContent(msgContent)) continue;
+            fs.closeSync(fd);
+            return cleanPromptText(msgContent);
+          }
+          if (Array.isArray(msgContent)) {
+            // Find the first user-authored text block (skip tool_result and system content)
+            for (const block of msgContent) {
+              if (block.type === 'tool_result') continue;
+              const text = block.content ?? block.text;
+              if (typeof text === 'string' && text.trim().length > 0 && !isSystemContent(text)) {
+                fs.closeSync(fd);
+                return cleanPromptText(text);
+              }
+            }
+            // All blocks were system/tool content — skip this message
+          }
+        } catch {
+          // skip malformed
+        }
+      }
+    }
+
+    fs.closeSync(fd);
+    fd = null;
+  } catch {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch { /* ignore */ }
+    }
+  }
+  return undefined;
+}
+
 function extractTasksId(tailContent: string): string | undefined {
   const match = TASKS_UUID_RE.exec(tailContent);
   return match?.[1];
 }
 
-function extractMetadata(filepath: string): Partial<Pick<ScannedSession, 'model' | 'cwd' | 'gitBranch' | 'version' | 'slug' | 'initialPrompt' | 'tasksId'>> {
+function extractMetadata(filepath: string): Partial<Pick<ScannedSession, 'model' | 'cwd' | 'gitBranch' | 'version' | 'slug' | 'initialPrompt' | 'latestPrompt' | 'tasksId'>> {
   const content = tailRead(filepath);
   if (!content) return {};
 
@@ -167,7 +248,7 @@ function extractMetadata(filepath: string): Partial<Pick<ScannedSession, 'model'
   // Discard first line (likely partial)
   const candidates = lines.slice(1);
 
-  const result: Partial<Pick<ScannedSession, 'model' | 'cwd' | 'gitBranch' | 'version' | 'slug' | 'initialPrompt' | 'tasksId'>> = {};
+  const result: Partial<Pick<ScannedSession, 'model' | 'cwd' | 'gitBranch' | 'version' | 'slug' | 'initialPrompt' | 'latestPrompt' | 'tasksId'>> = {};
 
   // Extract tasksId from the raw tail content
   result.tasksId = extractTasksId(content);
@@ -192,6 +273,9 @@ function extractMetadata(filepath: string): Partial<Pick<ScannedSession, 'model'
 
   // Extract initial prompt from head (separate read)
   result.initialPrompt = extractInitialPrompt(filepath);
+
+  // Extract latest user prompt from a larger tail
+  result.latestPrompt = extractLatestPrompt(filepath);
 
   return result;
 }
@@ -259,6 +343,9 @@ function scanProjectDir(projectsDir: string, projectDir: string): ScannedSession
 
     for (const sub of subEntries) {
       if (!sub.isFile() || !sub.name.endsWith('.jsonl') || !sub.name.startsWith('agent-')) continue;
+
+      // Skip compaction artifacts (agent-acompact-*.jsonl)
+      if (sub.name.startsWith('agent-acompact-')) continue;
 
       const agentId = sub.name.replace(/^agent-/, '').replace(/\.jsonl$/, '');
       const filePath = path.join(subagentsDir, sub.name);

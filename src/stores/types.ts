@@ -45,6 +45,7 @@ export interface Session {
   version?: string;
   slug?: string;
   initialPrompt?: string;
+  latestPrompt?: string;
   tasksId?: string;
   paneId?: string;
   isSubagent: boolean;

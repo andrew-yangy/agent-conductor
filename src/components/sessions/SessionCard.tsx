@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, GitBranch, HardDrive } from 'lucide-react';
+import { Terminal, GitBranch, HardDrive, ChevronDown, ChevronRight, Clock, MessageSquare, Users, Hash } from 'lucide-react';
 import { cn, timeAgo, sessionStatusLabel } from '@/lib/utils';
 import type { Session, SessionActivity } from '@/stores/types';
 import QuickActions from '@/components/shared/QuickActions';
@@ -57,6 +58,7 @@ async function handleFocus(paneId: string) {
 }
 
 export default function SessionCard({ session, teamInfo, paneId, sessionActivity, compact }: SessionCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const isActive = session.status === 'working';
   const model = shortModel(session.model ?? sessionActivity?.model);
   const cwd = shortCwd(session.cwd);
@@ -89,11 +91,14 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
     );
   }
 
-  const title = session.initialPrompt ?? session.slug;
-  const subtitle = session.initialPrompt ? session.slug : null;
+  const latestPrompt = session.latestPrompt;
+  const initialPrompt = session.initialPrompt;
+  const title = latestPrompt ?? initialPrompt ?? session.slug;
+  const hasSecondaryPrompt = latestPrompt && initialPrompt && latestPrompt !== initialPrompt;
 
   const cardContent = (
     <CardContent className="p-4">
+      {/* Header row: status dot + title + badges */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <div
@@ -103,7 +108,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
               isActive && 'animate-pulse'
             )}
           />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               {title ? (
                 <span className="text-sm font-medium truncate">{title}</span>
@@ -127,40 +132,160 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-              {subtitle && <span className="font-mono text-[10px]">{subtitle}</span>}
-              {teamInfo && (
-                <span>{teamInfo.teamName} / {teamInfo.memberName}</span>
-              )}
-              {session.gitBranch && session.gitBranch !== 'main' && (
-                <span className="flex items-center gap-0.5">
-                  <GitBranch className="h-3 w-3" />
-                  {session.gitBranch}
-                </span>
-              )}
-              {cwd && <span>{cwd}</span>}
-              <span>{timeAgo(session.lastActivity)}</span>
-              {session.fileSize > 0 && (
-                <span className="flex items-center gap-0.5">
-                  <HardDrive className="h-3 w-3" />
-                  {formatFileSize(session.fileSize)}
-                </span>
-              )}
-            </div>
           </div>
         </div>
 
-        {paneId && (
-          <div className="flex items-center gap-1 shrink-0">
-            <Terminal className="h-3 w-3 text-muted-foreground" />
-          </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {paneId && <Terminal className="h-3 w-3 text-muted-foreground" />}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="p-0.5 rounded hover:bg-muted/80 text-muted-foreground"
+          >
+            {expanded
+              ? <ChevronDown className="h-3.5 w-3.5" />
+              : <ChevronRight className="h-3.5 w-3.5" />
+            }
+          </button>
+        </div>
+      </div>
+
+      {/* Metadata row: slug, team, branch, cwd, time, size */}
+      <div className="flex items-center gap-2 mt-1 ml-[22px] text-xs text-muted-foreground flex-wrap">
+        {session.slug && (
+          <span className="font-mono text-[10px]">{session.slug}</span>
+        )}
+        {teamInfo && (
+          <span>{teamInfo.teamName} / {teamInfo.memberName}</span>
+        )}
+        {session.gitBranch && session.gitBranch !== 'main' && (
+          <span className="flex items-center gap-0.5">
+            <GitBranch className="h-3 w-3" />
+            {session.gitBranch}
+          </span>
+        )}
+        {cwd && <span>{cwd}</span>}
+        <span className="flex items-center gap-0.5">
+          <Clock className="h-3 w-3" />
+          {timeAgo(session.lastActivity)}
+        </span>
+        {session.fileSize > 0 && (
+          <span className="flex items-center gap-0.5">
+            <HardDrive className="h-3 w-3" />
+            {formatFileSize(session.fileSize)}
+          </span>
+        )}
+        {session.subagentIds.length > 0 && (
+          <span className="flex items-center gap-0.5">
+            <Users className="h-3 w-3" />
+            {session.subagentIds.length}
+          </span>
         )}
       </div>
 
-      {/* Activity line */}
-      <ActivityLine activity={sessionActivity} />
+      {/* Initial prompt (when different from latest) */}
+      {hasSecondaryPrompt && (
+        <div className="mt-1.5 ml-[22px] flex items-start gap-1.5 text-xs text-muted-foreground">
+          <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+          <span className="italic">{initialPrompt}</span>
+        </div>
+      )}
 
-      {/* Quick actions for waiting states — stop propagation to prevent card click → focus */}
+      {/* Activity line */}
+      <div className="ml-[22px]">
+        <ActivityLine activity={sessionActivity} />
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="mt-3 ml-[22px] border-t border-border/50 pt-3 space-y-2 text-xs">
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Hash className="h-3 w-3" />
+              Session
+            </span>
+            <span className="font-mono text-foreground">{session.id}</span>
+
+            {session.model && (
+              <>
+                <span>Model</span>
+                <span className="text-foreground">{session.model}</span>
+              </>
+            )}
+
+            {session.cwd && (
+              <>
+                <span>Working dir</span>
+                <span className="font-mono text-foreground">{session.cwd}</span>
+              </>
+            )}
+
+            {session.gitBranch && (
+              <>
+                <span className="flex items-center gap-1">
+                  <GitBranch className="h-3 w-3" />
+                  Branch
+                </span>
+                <span className="text-foreground">{session.gitBranch}</span>
+              </>
+            )}
+
+            {session.version && (
+              <>
+                <span>Version</span>
+                <span className="font-mono text-foreground">{session.version}</span>
+              </>
+            )}
+
+            {session.fileSize > 0 && (
+              <>
+                <span>Log size</span>
+                <span className="text-foreground">{formatFileSize(session.fileSize)}</span>
+              </>
+            )}
+
+            <span>Last activity</span>
+            <span className="text-foreground">{new Date(session.lastActivity).toLocaleString()}</span>
+
+            {session.subagentIds.length > 0 && (
+              <>
+                <span>Subagents</span>
+                <span className="text-foreground">{session.subagentIds.length} ({session.subagentIds.map(id => id.slice(0, 8)).join(', ')})</span>
+              </>
+            )}
+
+            {session.initialPrompt && (
+              <>
+                <span>Initial prompt</span>
+                <span className="text-foreground">{session.initialPrompt}</span>
+              </>
+            )}
+
+            {session.latestPrompt && session.latestPrompt !== session.initialPrompt && (
+              <>
+                <span>Latest prompt</span>
+                <span className="text-foreground">{session.latestPrompt}</span>
+              </>
+            )}
+
+            {session.feature && (
+              <>
+                <span>Feature</span>
+                <span className="text-foreground">{session.feature}</span>
+              </>
+            )}
+
+            {session.tasksId && (
+              <>
+                <span>Tasks ID</span>
+                <span className="font-mono text-foreground">{session.tasksId}</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick actions for waiting states */}
       {paneId && (
         <div onClick={(e) => e.stopPropagation()}>
           <QuickActions paneId={paneId} sessionStatus={session.status} />

@@ -8,6 +8,10 @@ export interface ClaudePaneMapping {
   byTasksDir: Map<string, string>;
   /** Map of claude PID → tmux pane ID */
   byPid: Map<number, string>;
+  /** Map of session UUID → tmux pane ID (from project dir paths in lsof) */
+  bySessionId: Map<string, string>;
+  /** Map of normalized pane title → pane ID (for fuzzy matching with initialPrompt) */
+  byPaneTitle: Map<string, string>;
 }
 
 /**
@@ -17,17 +21,19 @@ export interface ClaudePaneMapping {
  * 1. Get all tmux pane PIDs
  * 2. Find all `claude` processes via `pgrep`
  * 3. Walk each claude process's parent chain to find its tmux pane
- * 4. Extract tasks dir from lsof (open dirs under ~/.claude/tasks/{name}/)
+ * 4. Extract tasks dir + session IDs from lsof (open files under ~/.claude/)
  */
 export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
   const result: ClaudePaneMapping = {
     byTasksDir: new Map(),
     byPid: new Map(),
+    bySessionId: new Map(),
+    byPaneTitle: new Map(),
   };
 
   try {
-    // Step 1: Get all tmux pane PIDs
-    const paneMap = await getTmuxPanes();
+    // Step 1: Get all tmux pane PIDs and titles
+    const { paneMap, titleMap } = await getTmuxPanes();
     if (paneMap.size === 0) return result;
 
     // Step 2: Find all claude processes
@@ -50,14 +56,34 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
       }
     }
 
-    // Step 4: Extract tasks dir names from lsof for mapped claude PIDs
+    // Step 4: Extract tasks dirs + session IDs from lsof for mapped claude PIDs
     if (pidToPaneId.size > 0) {
-      const tasksMap = await extractTasksDirs([...pidToPaneId.keys()]);
-      for (const [pid, tasksDir] of tasksMap) {
+      const lsofData = await extractFromLsof([...pidToPaneId.keys()]);
+
+      for (const [pid, tasksDir] of lsofData.tasksDirs) {
         const paneId = pidToPaneId.get(pid);
         if (paneId) {
           result.byTasksDir.set(tasksDir, paneId);
         }
+      }
+
+      for (const [pid, sessionId] of lsofData.sessionIds) {
+        const paneId = pidToPaneId.get(pid);
+        if (paneId) {
+          result.bySessionId.set(sessionId, paneId);
+        }
+      }
+
+    }
+
+    // Step 5: Build pane title map for fuzzy matching
+    // Only include panes that have a mapped claude process
+    const claudePaneIds = new Set(pidToPaneId.values());
+    for (const [paneId, rawTitle] of titleMap) {
+      if (!claudePaneIds.has(paneId)) continue;
+      const title = normalizeTitle(rawTitle);
+      if (title && title !== 'claude code') {
+        result.byPaneTitle.set(title, paneId);
       }
     }
   } catch {
@@ -68,39 +94,64 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
 }
 
 /**
- * Get all tmux panes: returns Map<panePid, paneId>
+ * Normalize a pane title for matching: remove leading emoji/symbols, lowercase, trim.
  */
-async function getTmuxPanes(): Promise<Map<number, string>> {
-  const map = new Map<number, string>();
+function normalizeTitle(raw: string): string {
+  return raw
+    .replace(/^[\s✳⠐⠂⠈⠄✻✶·•]+/, '')
+    .trim()
+    .toLowerCase();
+}
+
+interface TmuxPaneData {
+  paneMap: Map<number, string>;   // panePid → paneId
+  titleMap: Map<string, string>;  // paneId → pane title
+}
+
+/**
+ * Get all tmux panes with PIDs and titles.
+ */
+async function getTmuxPanes(): Promise<TmuxPaneData> {
+  const paneMap = new Map<number, string>();
+  const titleMap = new Map<string, string>();
   try {
+    // Use TAB as separator since titles can contain spaces
     const { stdout } = await execFileAsync('tmux', [
-      'list-panes', '-a', '-F', '#{pane_id} #{pane_pid}',
+      'list-panes', '-a', '-F', '#{pane_id}\t#{pane_pid}\t#{pane_title}',
     ]);
     for (const line of stdout.trim().split('\n')) {
       if (!line) continue;
-      const [paneId, pidStr] = line.split(' ');
-      const pid = parseInt(pidStr, 10);
+      const parts = line.split('\t');
+      const paneId = parts[0];
+      const pid = parseInt(parts[1], 10);
+      const title = parts.slice(2).join('\t');
       if (paneId && !isNaN(pid)) {
-        map.set(pid, paneId);
+        paneMap.set(pid, paneId);
+        if (title) titleMap.set(paneId, title);
       }
     }
   } catch {
     // tmux not running
   }
-  return map;
+  return { paneMap, titleMap };
 }
 
 /**
- * Find all PIDs of processes named 'claude'
+ * Find all PIDs of processes named 'claude'.
+ * Uses `ps` instead of `pgrep` because macOS pgrep can miss processes.
  */
 async function findClaudePids(): Promise<number[]> {
   try {
-    const { stdout } = await execFileAsync('pgrep', ['-x', 'claude']);
-    return stdout.trim().split('\n')
-      .map((s) => parseInt(s, 10))
-      .filter((n) => !isNaN(n));
+    const { stdout } = await execFileAsync('ps', ['-eo', 'pid,comm']);
+    const pids: number[] = [];
+    for (const line of stdout.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const match = /^(\d+)\s+claude$/.exec(trimmed);
+      if (match) pids.push(parseInt(match[1], 10));
+    }
+    return pids;
   } catch {
-    // No claude processes found (pgrep returns exit code 1)
     return [];
   }
 }
@@ -131,44 +182,63 @@ async function walkParentChain(pid: number, panePids: Set<number>): Promise<numb
   return null;
 }
 
-/**
- * Extract tasks directory names from lsof output for given claude PIDs.
- * Matches both UUID-style and named task directories under ~/.claude/tasks/
- * Returns Map<pid, tasksDirName>
- */
-async function extractTasksDirs(pids: number[]): Promise<Map<number, string>> {
-  const map = new Map<number, string>();
-  const tasksRe = /\.claude\/tasks\/([^\s/]+)/;
+interface LsofData {
+  tasksDirs: Map<number, string>;   // PID → tasks dir name
+  sessionIds: Map<number, string>;  // PID → session UUID (from project dir paths)
+}
 
-  // Run lsof for all PIDs at once
+/**
+ * Extract tasks dirs and session IDs from lsof output for given claude PIDs.
+ *
+ * Matches:
+ * - ~/.claude/tasks/{name}/  → tasks dir name (for team builds)
+ * - ~/.claude/projects/{dir}/{uuid}[/...]  → session UUID (parent sessions with subagent dirs)
+ * - ~/.claude/projects/{dir}/{uuid}.jsonl  → session UUID (if caught during write)
+ */
+async function extractFromLsof(pids: number[]): Promise<LsofData> {
+  const result: LsofData = {
+    tasksDirs: new Map(),
+    sessionIds: new Map(),
+  };
+
+  const tasksRe = /\.claude\/tasks\/([^\s/]+)/;
+  // Match a UUID after the project dir name in .claude/projects/ paths
+  const sessionRe = /\.claude\/projects\/[^\s/]+\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
+
+  const parseLine = (line: string) => {
+    const parts = line.trim().split(/\s+/);
+    const linePid = parseInt(parts[1], 10);
+    if (isNaN(linePid)) return;
+
+    if (!result.tasksDirs.has(linePid)) {
+      const taskMatch = tasksRe.exec(line);
+      if (taskMatch) result.tasksDirs.set(linePid, taskMatch[1]);
+    }
+
+    if (!result.sessionIds.has(linePid)) {
+      const sessionMatch = sessionRe.exec(line);
+      if (sessionMatch) result.sessionIds.set(linePid, sessionMatch[1]);
+    }
+  };
+
   try {
     const pidArgs = pids.join(',');
     const { stdout } = await execFileAsync('lsof', ['-a', '-p', pidArgs], {
       maxBuffer: 2 * 1024 * 1024,
     });
-
     for (const line of stdout.split('\n')) {
-      const match = tasksRe.exec(line);
-      if (!match) continue;
-
-      // Extract PID from the lsof line (format: COMMAND PID USER ...)
-      const parts = line.trim().split(/\s+/);
-      const linePid = parseInt(parts[1], 10);
-      if (!isNaN(linePid) && !map.has(linePid)) {
-        map.set(linePid, match[1]);
-      }
+      parseLine(line);
     }
   } catch {
     // Fallback: try individual PIDs
     for (const pid of pids) {
-      if (map.has(pid)) continue;
+      if (result.tasksDirs.has(pid) && result.sessionIds.has(pid)) continue;
       try {
         const { stdout } = await execFileAsync('lsof', ['-a', '-p', String(pid)], {
           maxBuffer: 512 * 1024,
         });
-        const match = tasksRe.exec(stdout);
-        if (match) {
-          map.set(pid, match[1]);
+        for (const line of stdout.split('\n')) {
+          parseLine(line);
         }
       } catch {
         // Skip this PID
@@ -176,5 +246,5 @@ async function extractTasksDirs(pids: number[]): Promise<Map<number, string>> {
     }
   }
 
-  return map;
+  return result;
 }

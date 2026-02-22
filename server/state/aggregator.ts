@@ -27,7 +27,7 @@ export class Aggregator extends EventEmitter {
   private config: ConductorConfig;
   private staleTimer: ReturnType<typeof setInterval> | null = null;
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
-  private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map() };
+  private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map() };
 
   constructor(config: ConductorConfig) {
     super();
@@ -240,10 +240,25 @@ export class Aggregator extends EventEmitter {
       sessionToTasksDir.set(dirName, dirName);
     }
 
+    // Track assigned paneIds to prevent double-assignment
+    const assignedPaneIds = new Set<string>();
+
+    // Only assign panes to non-idle sessions (idle sessions aren't running anywhere)
+    const isRunning = (s: Session) =>
+      s.status === 'working' || s.status === 'waiting-approval' || s.status === 'waiting-input' || s.status === 'error';
+
+    // First pass: exact matching (tasks dir, session ID, lsof) for running sessions
     let changed = false;
     for (const session of this.state.sessions) {
-      // Team member mappings take priority
       if (teamPaneSessionIds.has(session.id)) continue;
+      if (!isRunning(session)) {
+        // Clear stale paneId on idle sessions
+        if (session.paneId) {
+          session.paneId = undefined;
+          changed = true;
+        }
+        continue;
+      }
 
       // Try matching: session.tasksId → byTasksDir
       let paneId = session.tasksId
@@ -255,12 +270,68 @@ export class Aggregator extends EventEmitter {
         paneId = this.paneMapping.byTasksDir.get(session.id);
       }
 
-      if (paneId && session.paneId !== paneId) {
-        session.paneId = paneId;
-        changed = true;
-      } else if (!paneId && session.paneId) {
+      // Try matching: session ID from lsof project directory paths
+      if (!paneId) {
+        const baseId = session.parentSessionId ?? session.id;
+        paneId = this.paneMapping.bySessionId.get(baseId);
+      }
+
+      if (paneId) {
+        assignedPaneIds.add(paneId);
+        if (session.paneId !== paneId) {
+          session.paneId = paneId;
+          changed = true;
+        }
+      } else if (session.paneId) {
         session.paneId = undefined;
         changed = true;
+      }
+    }
+
+    // Second pass: fuzzy title matching for remaining unmatched active sessions
+    if (this.paneMapping.byPaneTitle.size > 0) {
+      for (const session of this.state.sessions) {
+        if (session.paneId || teamPaneSessionIds.has(session.id)) continue;
+        if (session.status !== 'working' && session.status !== 'waiting-approval' && session.status !== 'waiting-input') continue;
+        const promptText = session.initialPrompt || session.latestPrompt;
+        if (!promptText) continue;
+
+        const promptLower = promptText.toLowerCase();
+        const promptWords = promptLower.split(/\s+/).filter((w) => w.length > 2);
+        if (promptWords.length === 0) continue;
+
+        let bestPaneId: string | undefined;
+        let bestScore = 0;
+
+        for (const [title, titlePaneId] of this.paneMapping.byPaneTitle) {
+          if (assignedPaneIds.has(titlePaneId)) continue;
+          const titleWords = title.split(/\s+/).filter((w) => w.length > 2);
+          if (titleWords.length === 0) continue;
+
+          // Count word overlap (bidirectional substring matching)
+          const overlap = titleWords.filter((tw) => promptWords.some((pw) => pw.includes(tw) || tw.includes(pw))).length;
+          const ratio = overlap / titleWords.length;
+
+          // Score: full title match (title is substring of prompt or vice versa)
+          if (promptLower.includes(title) || title.includes(promptLower)) {
+            const score = title.length + 100; // Boost for full match
+            if (score > bestScore) {
+              bestScore = score;
+              bestPaneId = titlePaneId;
+            }
+          }
+          // Score: word overlap — require >= 1 word AND > 50% of title words
+          else if (overlap >= 1 && ratio > 0.5 && overlap > bestScore) {
+            bestScore = overlap;
+            bestPaneId = titlePaneId;
+          }
+        }
+
+        if (bestPaneId) {
+          session.paneId = bestPaneId;
+          assignedPaneIds.add(bestPaneId);
+          changed = true;
+        }
       }
     }
 
@@ -392,6 +463,7 @@ export class Aggregator extends EventEmitter {
         version: s.version,
         slug: s.slug,
         initialPrompt: s.initialPrompt,
+        latestPrompt: s.latestPrompt,
         tasksId: s.tasksId,
         isSubagent: s.isSubagent,
         parentSessionId: s.parentSessionId,

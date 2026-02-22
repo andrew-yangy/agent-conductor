@@ -50,25 +50,31 @@ export default function SessionsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const { sessions, projects, teams, sessionActivities } = useDashboardStore();
 
-  // Filter sessions
-  const filteredSessions = useMemo(() =>
-    sessions.filter((s) =>
-      passesTimeFilter(s, timeFilter) && passesStatusFilter(s, statusFilter)
-    ),
-    [sessions, timeFilter, statusFilter]
-  );
+  // Filter parent sessions by time + status, then include all their subagents
+  const { filteredSessions, filteredProjects } = useMemo(() => {
+    // 1. Find parent sessions that pass filters
+    const matchedParentIds = new Set(
+      sessions
+        .filter((s) => !s.isSubagent && passesTimeFilter(s, timeFilter) && passesStatusFilter(s, statusFilter))
+        .map((s) => s.id)
+    );
 
-  // Build filtered projects (only include sessions that pass filters)
-  const filteredProjects = useMemo(() => {
-    const filteredIds = new Set(filteredSessions.filter((s) => !s.isSubagent).map((s) => s.id));
+    // 2. Include matching parents + all subagents whose parent matched
+    const filtered = sessions.filter((s) => {
+      if (!s.isSubagent) return matchedParentIds.has(s.id);
+      return s.parentSessionId ? matchedParentIds.has(s.parentSessionId) : false;
+    });
 
-    return projects
+    // 3. Build filtered projects from matched parents only
+    const projectList = projects
       .map((p): ProjectGroup => ({
         ...p,
-        sessions: p.sessions.filter((s) => filteredIds.has(s.id)),
+        sessions: p.sessions.filter((s) => matchedParentIds.has(s.id)),
       }))
       .filter((p) => p.sessions.length > 0);
-  }, [projects, filteredSessions]);
+
+    return { filteredSessions: filtered, filteredProjects: projectList };
+  }, [sessions, projects, timeFilter, statusFilter]);
 
   // Build session->team lookup
   const sessionTeamMap = useMemo(() => {
