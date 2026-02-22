@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { WsMessage, DashboardState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig } from '@/stores/types';
+import type { WsMessage, DashboardState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup } from '@/stores/types';
 
 const WS_URL = 'ws://localhost:4444';
 const MAX_RECONNECT_DELAY = 30000;
@@ -13,6 +13,7 @@ export function useWebSocket() {
   const {
     setFullState,
     updateSessions,
+    updateProjects,
     updateTeams,
     updateTasks,
     addEvent,
@@ -49,11 +50,17 @@ export function useWebSocket() {
             case 'sessions_updated':
               updateSessions(payload.sessions as Session[]);
               break;
+            case 'projects_updated':
+              updateProjects(payload.projects as ProjectGroup[]);
+              break;
             case 'teams_updated':
               updateTeams(payload.teams as Team[]);
               break;
             case 'tasks_updated':
-              updateTasks(payload.tasksByTeam as Record<string, TeamTask[]>);
+              updateTasks(
+                payload.tasksByTeam as Record<string, TeamTask[]>,
+                payload.tasksBySession as Record<string, TeamTask[]> | undefined
+              );
               break;
             case 'event_added': {
               const events = payload.events as HookEvent[];
@@ -114,5 +121,5 @@ export function useWebSocket() {
         wsRef.current = null;
       }
     };
-  }, [setFullState, updateSessions, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateNotificationConfig, addNotificationFired]);
+  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateNotificationConfig, addNotificationFired]);
 }

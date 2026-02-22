@@ -10,6 +10,7 @@ import { SessionWatcher } from './watchers/session-watcher.js';
 import { processEvent } from './hooks/event-receiver.js';
 import { focusPane } from './actions/terminal.js';
 import { sendInput } from './actions/send-input.js';
+import { deleteTeam } from './actions/cleanup.js';
 import { Notifier } from './notifications/notifier.js';
 import type { WsMessage, WsMessageType, SendInputRequest } from './types.js';
 
@@ -58,7 +59,7 @@ const serverStartTime = new Date().toISOString();
 const server = http.createServer((req, res) => {
   // CORS headers for dev mode
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
@@ -110,6 +111,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // DELETE /api/teams/:name
+  if (url.pathname.startsWith('/api/teams/') && req.method === 'DELETE') {
+    const teamName = decodeURIComponent(url.pathname.slice('/api/teams/'.length));
+    handleDeleteTeam(teamName, res);
+    return;
+  }
+
   // --- Static file serving for production ---
   const distDir = path.join(import.meta.dirname, '..', 'dist');
   if (fs.existsSync(distDir)) {
@@ -154,11 +162,14 @@ aggregator.on('change', (type: WsMessageType) => {
     case 'sessions_updated':
       payload = { sessions: state.sessions };
       break;
+    case 'projects_updated':
+      payload = { projects: state.projects };
+      break;
     case 'teams_updated':
       payload = { teams: state.teams };
       break;
     case 'tasks_updated':
-      payload = { tasksByTeam: state.tasksByTeam };
+      payload = { tasksByTeam: state.tasksByTeam, tasksBySession: state.tasksBySession };
       break;
     case 'event_added':
       payload = { events: state.events.slice(0, 1) }; // Just the newest event
@@ -333,6 +344,25 @@ function handleSendInput(req: http.IncomingMessage, res: http.ServerResponse): v
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal error' }));
   });
+}
+
+function handleDeleteTeam(teamName: string, res: http.ServerResponse): void {
+  if (!teamName) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Missing team name' }));
+    return;
+  }
+
+  const result = deleteTeam(config.claudeHome, teamName);
+  if (result.success) {
+    aggregator.refreshTeams();
+    aggregator.refreshTasks();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+  } else {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: result.error }));
+  }
 }
 
 function handleGetConfig(res: http.ServerResponse): void {

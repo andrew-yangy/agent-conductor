@@ -1,15 +1,20 @@
 import StatsBar from './StatsBar';
 import AttentionRequired from './AttentionRequired';
 import TeamCard from './TeamCard';
-import RecentActivity from './RecentActivity';
+import ActiveSessions from './RecentActivity';
 import { useDashboardStore } from '@/stores/dashboard-store';
 
 export default function DashboardPage() {
-  const { teams, sessions, events, tasksByTeam } = useDashboardStore();
+  const { teams, sessions, events, sessionActivities, tasksByTeam } = useDashboardStore();
 
   const activeTeams = teams.filter((t) => !t.stale);
   const staleTeams = teams.filter((t) => t.stale);
-  const totalAgents = teams.reduce((sum, t) => sum + t.members.length, 0);
+
+  // Count parent sessions only (not subagents)
+  const parentSessions = sessions.filter((s) => !s.isSubagent);
+  const activeSessions = parentSessions.filter((s) => s.status === 'working').length;
+  const totalSessions = parentSessions.length;
+
   const attentionSessions = sessions.filter(
     (s) => s.status === 'waiting-input' || s.status === 'waiting-approval' || s.status === 'error'
   );
@@ -20,7 +25,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <StatsBar
         activeTeams={activeTeams.length}
-        totalAgents={totalAgents}
+        activeSessions={activeSessions}
+        totalSessions={totalSessions}
         attentionCount={attentionSessions.length}
         eventsToday={eventsToday}
       />
@@ -51,8 +57,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Recent Activity */}
-      <RecentActivity events={events.slice(0, 20)} />
+      {/* Live Sessions */}
+      <ActiveSessions sessions={sessions} sessionActivities={sessionActivities} />
     </div>
   );
 }

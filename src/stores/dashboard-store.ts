@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DashboardState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig } from './types';
+import type { DashboardState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup } from './types';
 
 interface DashboardStore extends DashboardState {
   connected: boolean;
@@ -7,20 +7,24 @@ interface DashboardStore extends DashboardState {
   notificationFired: Record<string, number>;
   setFullState: (state: DashboardState) => void;
   updateSessions: (sessions: Session[]) => void;
+  updateProjects: (projects: ProjectGroup[]) => void;
   updateTeams: (teams: Team[]) => void;
-  updateTasks: (tasksByTeam: Record<string, TeamTask[]>) => void;
+  updateTasks: (tasksByTeam: Record<string, TeamTask[]>, tasksBySession?: Record<string, TeamTask[]>) => void;
   addEvent: (event: HookEvent) => void;
   updateEvents: (events: HookEvent[]) => void;
   setConnected: (connected: boolean) => void;
   updateSessionActivities: (activities: Record<string, SessionActivity>) => void;
   updateNotificationConfig: (config: NotificationConfig) => void;
   addNotificationFired: (sessionId: string) => void;
+  deleteTeam: (teamName: string) => Promise<void>;
 }
 
 export const useDashboardStore = create<DashboardStore>((set) => ({
   teams: [],
   sessions: [],
+  projects: [],
   tasksByTeam: {},
+  tasksBySession: {},
   events: [],
   sessionActivities: {},
   lastUpdated: '',
@@ -32,7 +36,9 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
     set({
       teams: state.teams ?? [],
       sessions: state.sessions ?? [],
+      projects: state.projects ?? [],
       tasksByTeam: state.tasksByTeam ?? {},
+      tasksBySession: state.tasksBySession ?? {},
       events: state.events ?? [],
       lastUpdated: state.lastUpdated || new Date().toISOString(),
     }),
@@ -40,11 +46,18 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   updateSessions: (sessions) =>
     set({ sessions, lastUpdated: new Date().toISOString() }),
 
+  updateProjects: (projects) =>
+    set({ projects, lastUpdated: new Date().toISOString() }),
+
   updateTeams: (teams) =>
     set({ teams, lastUpdated: new Date().toISOString() }),
 
-  updateTasks: (tasksByTeam) =>
-    set({ tasksByTeam, lastUpdated: new Date().toISOString() }),
+  updateTasks: (tasksByTeam, tasksBySession) =>
+    set((state) => ({
+      tasksByTeam,
+      tasksBySession: tasksBySession ?? state.tasksBySession,
+      lastUpdated: new Date().toISOString(),
+    })),
 
   addEvent: (event) =>
     set((state) => ({
@@ -69,4 +82,18 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
     set((state) => ({
       notificationFired: { ...state.notificationFired, [sessionId]: Date.now() },
     })),
+
+  deleteTeam: async (teamName) => {
+    try {
+      const res = await fetch(`http://localhost:4444/api/teams/${encodeURIComponent(teamName)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error('Failed to delete team:', data.error);
+      }
+    } catch (err) {
+      console.error('Failed to delete team:', err);
+    }
+  },
 }));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Monitor, Activity, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ const navItems = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const connected = useDashboardStore((s) => s.connected);
+  const location = useLocation();
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -45,34 +46,39 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 flex flex-col gap-1 p-2">
-          {navItems.map((item) => (
-            <Tooltip key={item.to}>
-              <TooltipTrigger asChild>
-                <NavLink
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    cn(
+          {navItems.map((item) => {
+            const isActive = item.end
+              ? location.pathname === item.to
+              : location.pathname.startsWith(item.to);
+
+            return (
+              <Tooltip key={item.to}>
+                <TooltipTrigger asChild>
+                  <Link
+                    to={item.to}
+                    className={cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                       'hover:bg-accent hover:text-accent-foreground',
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-muted-foreground',
                       collapsed && 'justify-center px-2'
-                    )
-                  }
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </NavLink>
-              </TooltipTrigger>
-              {collapsed && (
-                <TooltipContent side="right">
-                  {item.label}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          ))}
+                    )}
+                  >
+                    <span className="w-5 flex items-center justify-center shrink-0">
+                      <item.icon className="h-4 w-4" />
+                    </span>
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                </TooltipTrigger>
+                {collapsed && (
+                  <TooltipContent side="right">
+                    {item.label}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            );
+          })}
         </nav>
 
         {/* Footer */}

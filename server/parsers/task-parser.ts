@@ -69,11 +69,49 @@ export function parseAllTeamTasks(claudeHome: string, teamNames: string[]): Reco
   const result: Record<string, TeamTask[]> = {};
 
   for (const teamName of teamNames) {
-    // Skip UUID-named directories
-    if (UUID_DIR_REGEX.test(teamName)) continue;
-
     result[teamName] = parseTeamTasks(claudeHome, teamName);
   }
 
   return result;
+}
+
+/**
+ * Parse all task directories, splitting into team-named and UUID-named (session) dirs.
+ */
+export function parseAllTasks(claudeHome: string, knownTeamNames: Set<string>): {
+  byTeam: Record<string, TeamTask[]>;
+  bySession: Record<string, TeamTask[]>;
+} {
+  const tasksRoot = path.join(claudeHome, 'tasks');
+  const byTeam: Record<string, TeamTask[]> = {};
+  const bySession: Record<string, TeamTask[]> = {};
+
+  let dirs: string[];
+  try {
+    dirs = fs.readdirSync(tasksRoot).filter((d) => {
+      try {
+        return fs.statSync(path.join(tasksRoot, d)).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return { byTeam, bySession };
+  }
+
+  for (const dirName of dirs) {
+    const tasks = parseTeamTasks(claudeHome, dirName);
+    if (tasks.length === 0) continue;
+
+    if (knownTeamNames.has(dirName)) {
+      byTeam[dirName] = tasks;
+    } else if (UUID_DIR_REGEX.test(dirName)) {
+      bySession[dirName] = tasks;
+    } else {
+      // Unknown non-UUID dir — include in byTeam as a fallback
+      byTeam[dirName] = tasks;
+    }
+  }
+
+  return { byTeam, bySession };
 }

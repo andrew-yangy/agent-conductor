@@ -8,7 +8,8 @@ export class SessionWatcher {
   private watcher: FSWatcher | null = null;
   private aggregator: Aggregator;
   private claudeHome: string;
-  private debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private activityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private sessionRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private _ready = false;
 
   constructor(aggregator: Aggregator, claudeHome: string) {
@@ -32,11 +33,19 @@ export class SessionWatcher {
       persistent: true,
     });
 
-    this.watcher.on('all', (_event: string, filePath: string) => {
+    this.watcher.on('all', (event: string, filePath: string) => {
       // Only care about JSONL files
       if (!filePath.endsWith('.jsonl')) return;
 
-      this.handleChange(filePath);
+      if (event === 'add' || event === 'unlink') {
+        // New or deleted session file — refresh session list (1s debounce)
+        this.scheduleSessionRefresh();
+      }
+
+      if (event === 'change' || event === 'add') {
+        // Activity update (500ms debounce per file)
+        this.handleActivityChange(filePath);
+      }
     });
 
     this.watcher.on('ready', () => {
@@ -54,24 +63,39 @@ export class SessionWatcher {
   }
 
   async stop(): Promise<void> {
-    for (const timer of this.debounceTimers.values()) {
+    for (const timer of this.activityTimers.values()) {
       clearTimeout(timer);
     }
-    this.debounceTimers.clear();
+    this.activityTimers.clear();
+    if (this.sessionRefreshTimer) {
+      clearTimeout(this.sessionRefreshTimer);
+      this.sessionRefreshTimer = null;
+    }
     if (this.watcher) {
       await this.watcher.close();
       this.watcher = null;
     }
   }
 
-  private handleChange(filePath: string): void {
-    const existing = this.debounceTimers.get(filePath);
+  private scheduleSessionRefresh(): void {
+    if (this.sessionRefreshTimer) {
+      clearTimeout(this.sessionRefreshTimer);
+    }
+    this.sessionRefreshTimer = setTimeout(() => {
+      this.sessionRefreshTimer = null;
+      console.log('[session-watcher] Refreshing sessions (new/deleted file detected)');
+      this.aggregator.refreshSessions();
+    }, 1000);
+  }
+
+  private handleActivityChange(filePath: string): void {
+    const existing = this.activityTimers.get(filePath);
     if (existing) {
       clearTimeout(existing);
     }
 
-    this.debounceTimers.set(filePath, setTimeout(() => {
-      this.debounceTimers.delete(filePath);
+    this.activityTimers.set(filePath, setTimeout(() => {
+      this.activityTimers.delete(filePath);
 
       const result = parseSessionLog(filePath);
       if (result && result.active) {

@@ -35,9 +35,29 @@ export interface TeamTask {
 export interface Session {
   id: string;
   project: string;
+  projectDir: string;
   status: 'working' | 'waiting-approval' | 'waiting-input' | 'idle' | 'error';
   lastActivity: string;
   feature?: string;
+  model?: string;
+  cwd?: string;
+  gitBranch?: string;
+  version?: string;
+  slug?: string;
+  initialPrompt?: string;
+  tasksId?: string;
+  paneId?: string;
+  isSubagent: boolean;
+  parentSessionId?: string;
+  agentId?: string;
+  subagentIds: string[];
+  fileSize: number;
+}
+
+export interface ProjectGroup {
+  name: string;
+  dirName: string;
+  sessions: Session[];
 }
 
 export interface HookEvent {
@@ -53,7 +73,9 @@ export interface HookEvent {
 export interface DashboardState {
   teams: Team[];
   sessions: Session[];
+  projects: ProjectGroup[];
   tasksByTeam: Record<string, TeamTask[]>;
+  tasksBySession: Record<string, TeamTask[]>;
   events: HookEvent[];
   sessionActivities: Record<string, SessionActivity>;
   lastUpdated: string;
@@ -97,6 +119,7 @@ export interface SessionActivity {
 export type WsMessageType =
   | 'full_state'
   | 'sessions_updated'
+  | 'projects_updated'
   | 'teams_updated'
   | 'tasks_updated'
   | 'event_added'

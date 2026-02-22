@@ -1,73 +1,124 @@
-# React + TypeScript + Vite
+# Agent Conductor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A real-time dashboard for monitoring and managing [Claude Code](https://docs.anthropic.com/en/docs/claude-code) agent teams. See what every agent is doing, approve prompts from the browser, and get notified when agents need attention.
 
-Currently, two official plugins are available:
+![Dashboard](https://img.shields.io/badge/status-alpha-orange) ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue) ![React](https://img.shields.io/badge/React-19-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Why
 
-## React Compiler
+When running Claude Code agent teams (`/team-build`), you end up with multiple agents working in parallel across tmux panes. Switching between panes to check status, approve prompts, and track progress is tedious. Agent Conductor gives you a single dashboard to see everything at once.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- **Session discovery** — automatically finds all Claude Code sessions by scanning `~/.claude/projects/` JSONL files. No configuration needed.
+- **Live activity** — see what each agent is doing in real-time (editing files, running commands, thinking)
+- **Session tree** — sessions grouped by project, with subagents nested under their parent
+- **Team monitoring** — track team members, task progress, and agent status
+- **Send input** — approve/reject prompts and send text to agents directly from the dashboard
+- **Stale team cleanup** — delete old teams and task lists with one click
+- **macOS notifications** — native alerts when agents need attention (even when the browser is minimized)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Quick Start
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone https://github.com/andrew-yangy/agent-conductor.git
+cd agent-conductor
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open [http://localhost:5173](http://localhost:5173). The server runs on port 4444.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+That's it. Agent Conductor automatically discovers your Claude Code sessions from `~/.claude/`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## How It Works
+
+Agent Conductor watches the Claude Code data directory (`~/.claude/`) for changes:
+
 ```
+~/.claude/
+  projects/           # Session JSONL logs (primary data source)
+    {project}/
+      {session}.jsonl  # Each Claude Code session
+      {session}/subagents/agent-*.jsonl
+  teams/              # Team configs (from /team-build)
+  tasks/              # Task lists
+```
+
+**Architecture:**
+
+```
+JSONL files ──> File watchers (chokidar) ──> Aggregator ──> WebSocket ──> React dashboard
+                                                  ↑
+                                            Hook events (optional enrichment)
+```
+
+- **Sessions** are discovered by scanning JSONL files on disk. Active sessions (file modified < 30s ago) get their metadata extracted via tail-read (last 8KB only — safe for large files).
+- **Activity** is parsed from the last JSONL entries — which tool is running, what file is being edited.
+- **Teams** are read from `~/.claude/teams/*/config.json`.
+- **Hook events** (if configured) enrich session status with waiting/error states.
+
+## Configuration
+
+Config lives at `~/.conductor/config.json` (auto-created on first run):
+
+```json
+{
+  "claudeHome": "~/.claude",
+  "server": { "port": 4444 },
+  "notifications": {
+    "macOS": true,
+    "browser": true
+  }
+}
+```
+
+### Optional: Claude Code hooks
+
+For richer status detection (waiting for approval, errors), add hooks to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "stop": ["bash", "-c", "curl -s -X POST http://localhost:4444/api/events -H 'Content-Type: application/json' -d '{\"type\":\"stop\",\"sessionId\":\"'$SESSION_ID'\",\"project\":\"'$PROJECT'\"}'"],
+    "notification": ["bash", "-c", "curl -s -X POST http://localhost:4444/api/events -H 'Content-Type: application/json' -d '{\"type\":\"'$TYPE'\",\"sessionId\":\"'$SESSION_ID'\",\"project\":\"'$PROJECT'\",\"message\":\"'$MESSAGE'\"}'"]
+  }
+}
+```
+
+Hooks are optional — session discovery works without them via filesystem scanning.
+
+## Tech Stack
+
+- **Server**: Node.js with raw `http.createServer` + `ws` WebSocket + SQLite (better-sqlite3) + chokidar file watching
+- **Frontend**: React 19 + Vite + Zustand + Tailwind v4 + shadcn/ui + Radix primitives
+- **Zero external services** — everything runs locally, reads from `~/.claude/`
+
+## Scripts
+
+```bash
+npm run dev          # Start server + client (concurrent)
+npm run dev:server   # Server only (port 4444)
+npm run dev:client   # Vite dev server only
+npm run build        # Production build
+npm run type-check   # TypeScript check
+npm run lint         # ESLint
+```
+
+## API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/state` | Full dashboard state |
+| GET | `/api/events` | Recent events |
+| POST | `/api/events` | Add hook event |
+| POST | `/api/actions/focus-session` | Focus tmux pane |
+| POST | `/api/actions/send-input` | Send input to agent |
+| DELETE | `/api/teams/:name` | Delete stale team |
+| GET | `/api/config` | Get config |
+| PATCH | `/api/config` | Update config |
+| WS | `ws://localhost:4444` | Real-time updates |
+
+## License
+
+MIT
