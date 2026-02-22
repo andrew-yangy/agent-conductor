@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 220 10% 6%;
+    --foreground: 0 0% 95%;
+    --card: 220 10% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 220 10% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 220 70% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 10% 16%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 220 10% 16%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 220 10% 16%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 10% 18%;
+    --input: 220 10% 18%;
+    --ring: 220 70% 55%;
+    --radius: 0.5rem;
+
+    /* Status colors */
+    --status-working: 142 70% 45%;
+    --status-waiting: 38 92% 50%;
+    --status-idle: 0 0% 45%;
+    --status-error: 0 72% 51%;
+
+    color-scheme: dark;
+  }
+}
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-status-green: hsl(var(--status-working));
+  --color-status-yellow: hsl(var(--status-waiting));
+  --color-status-gray: hsl(var(--status-idle));
+  --color-status-red: hsl(var(--status-error));
+
+  --color-sidebar: hsl(220 10% 8%);
+
+  /* Legacy aliases for existing components (migrate then remove) */
+  --color-bg: hsl(var(--background));
+  --color-bg-card: hsl(var(--card));
+  --color-bg-card-hover: hsl(220 10% 14%);
+  --color-bg-sidebar: hsl(220 10% 8%);
+  --color-bg-input: hsl(var(--input));
+  --color-border-subtle: hsl(220 10% 14%);
+  --color-text: hsl(var(--foreground));
+  --color-text-muted: hsl(var(--muted-foreground));
+  --color-text-dim: hsl(0 0% 44%);
+  --color-status-blue: hsl(217 91% 60%);
+  --color-accent-hover: hsl(231 70% 74%);
+  --color-ring-offset: hsl(var(--background));
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 10% 28%);
+}
