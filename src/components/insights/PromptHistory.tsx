@@ -28,12 +28,11 @@ function formatTimestamp(ts: number): string {
 
 const STATUS_COLORS: Record<string, string> = {
   working: 'bg-status-green',
-  thinking: 'bg-blue-500',
   'waiting-approval': 'bg-yellow-500',
   'waiting-input': 'bg-yellow-500',
-  done: 'bg-muted-foreground',
-  paused: 'bg-muted-foreground',
-  idle: 'bg-muted-foreground',
+  done: 'bg-status-done',
+  paused: 'bg-orange-400',
+  idle: 'bg-zinc-500',
   error: 'bg-status-red',
 };
 

@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { watch, type FSWatcher } from 'chokidar';
 import type { Aggregator } from '../state/aggregator.js';
-import { parseSessionLog } from '../parsers/session-log.js';
+import { processFileUpdate, getOrBootstrap, removeFileState, toSessionActivity } from '../parsers/session-state.js';
 
 export class SessionWatcher {
   private watcher: FSWatcher | null = null;
@@ -37,9 +37,11 @@ export class SessionWatcher {
       // Only care about JSONL files
       if (!filePath.endsWith('.jsonl')) return;
 
-      if (event === 'add' || event === 'unlink' || event === 'change') {
-        // Session file added, deleted, or changed — refresh session list (1s debounce)
-        // With metadata cache, change refreshes are cheap (only re-extracts if mtime/size differ)
+      if (event === 'add' || event === 'unlink') {
+        // Session file added or deleted — refresh session list (1s debounce)
+        if (event === 'unlink') {
+          removeFileState(filePath);
+        }
         this.scheduleSessionRefresh();
       }
 
@@ -98,12 +100,23 @@ export class SessionWatcher {
     this.activityTimers.set(filePath, setTimeout(() => {
       this.activityTimers.delete(filePath);
 
-      const result = parseSessionLog(filePath);
-      if (result && result.active) {
-        console.log(`[session-watcher] Activity for session ${result.sessionId}: ${result.tool ?? (result.thinking ? 'thinking' : 'idle')}`);
-        this.aggregator.updateSessionActivity(result.sessionId, result);
+      // Incremental update: reads only new bytes since last offset
+      const state = processFileUpdate(filePath);
+      if (state) {
+        const activity = toSessionActivity(state);
+        if (activity && activity.active) {
+          console.log(`[session-watcher] Activity for session ${activity.sessionId}: ${activity.tool ?? (activity.thinking ? 'thinking' : 'idle')}`);
+          this.aggregator.updateSessionFromFileState(filePath, state);
+        } else {
+          // File changed but activity not active — still update state
+          this.aggregator.updateSessionFromFileState(filePath, state);
+        }
       } else {
-        this.aggregator.refreshSessionActivities();
+        // No new data or bootstrap failed — try bootstrap for new files
+        const bootstrapped = getOrBootstrap(filePath);
+        if (bootstrapped) {
+          this.aggregator.updateSessionFromFileState(filePath, bootstrapped);
+        }
       }
     }, 500));
   }

@@ -12,7 +12,6 @@ interface ActiveSessionsProps {
 function statusDotColor(status: Session['status']): string {
   switch (status) {
     case 'working': return 'bg-status-green';
-    case 'thinking': return 'bg-status-blue';
     case 'waiting-input':
     case 'waiting-approval': return 'bg-status-yellow';
     case 'error': return 'bg-status-red';
@@ -48,7 +47,7 @@ export default function ActiveSessions({ sessions, sessionActivities }: ActiveSe
                   className={cn(
                     'h-2 w-2 rounded-full shrink-0',
                     statusDotColor(session.status),
-                    (session.status === 'working' || session.status === 'thinking') && 'animate-pulse'
+                    session.status === 'working' && 'animate-pulse'
                   )}
                 />
                 <div className="min-w-0 flex-1">

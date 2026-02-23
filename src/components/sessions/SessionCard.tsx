@@ -18,7 +18,6 @@ interface SessionCardProps {
 function statusDotColor(status: Session['status']): string {
   switch (status) {
     case 'working': return 'bg-status-green';
-    case 'thinking': return 'bg-status-blue';
     case 'waiting-input':
     case 'waiting-approval': return 'bg-status-yellow';
     case 'error': return 'bg-status-red';
@@ -60,7 +59,7 @@ async function handleFocus(paneId: string) {
 
 export default function SessionCard({ session, teamInfo, paneId, sessionActivity, compact }: SessionCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const isActive = session.status === 'working' || session.status === 'thinking';
+  const isActive = session.status === 'working';
   const model = shortModel(session.model ?? sessionActivity?.model);
   const cwd = shortCwd(session.cwd);
 
@@ -124,8 +123,8 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
                   'text-[10px] shrink-0',
                   session.status === 'error' && 'text-status-red border-status-red/30',
                   (session.status === 'waiting-input' || session.status === 'waiting-approval') && 'text-status-yellow border-status-yellow/30',
-                  (session.status === 'working' || session.status === 'done') && 'text-status-green border-status-green/30',
-                  session.status === 'thinking' && 'text-status-blue border-status-blue/30'
+                  session.status === 'working' && 'text-status-green border-status-green/30',
+                  session.status === 'done' && 'text-status-done border-status-done/30'
                 )}
               >
                 {sessionStatusLabel(session.status)}

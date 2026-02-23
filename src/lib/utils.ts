@@ -32,11 +32,10 @@ export function timeAgo(date: string): string {
 export function statusColor(status: string): string {
   switch (status) {
     case 'working':
+      return 'text-status-green';
     case 'done':
     case 'completed':
-      return 'text-status-green';
-    case 'thinking':
-      return 'text-status-blue';
+      return 'text-status-done';
     case 'waiting-approval':
     case 'waiting-input':
     case 'in-progress':
@@ -59,11 +58,10 @@ export function statusColor(status: string): string {
 export function statusBgColor(status: string): string {
   switch (status) {
     case 'working':
+      return 'bg-status-green';
     case 'done':
     case 'completed':
-      return 'bg-status-green';
-    case 'thinking':
-      return 'bg-status-blue';
+      return 'bg-status-done';
     case 'waiting-approval':
     case 'waiting-input':
     case 'in-progress':
@@ -140,8 +138,6 @@ export function sessionStatusLabel(status: string): string {
   switch (status) {
     case 'working':
       return 'Working';
-    case 'thinking':
-      return 'Thinking';
     case 'waiting-approval':
       return 'Waiting Approval';
     case 'waiting-input':

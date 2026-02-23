@@ -25,6 +25,7 @@
 
     /* Status colors */
     --status-working: 142 70% 45%;
+    --status-done: 220 9% 56%;
     --status-waiting: 38 92% 50%;
     --status-idle: 0 0% 45%;
     --status-error: 0 72% 51%;
@@ -55,6 +56,7 @@
   --color-ring: hsl(var(--ring));
 
   --color-status-green: hsl(var(--status-working));
+  --color-status-done: hsl(var(--status-done));
   --color-status-yellow: hsl(var(--status-waiting));
   --color-status-gray: hsl(var(--status-idle));
   --color-status-red: hsl(var(--status-error));

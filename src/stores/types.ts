@@ -36,7 +36,7 @@ export interface Session {
   id: string;
   project: string;
   projectDir: string;
-  status: 'working' | 'waiting-approval' | 'waiting-input' | 'thinking' | 'done' | 'paused' | 'idle' | 'error';
+  status: 'working' | 'waiting-approval' | 'waiting-input' | 'done' | 'paused' | 'idle' | 'error';
   lastActivity: string;
   feature?: string;
   model?: string;

@@ -5,8 +5,18 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parseAllTeams } from '../parsers/team-parser.js';
 import { parseAllTeamTasks, parseAllTasks } from '../parsers/task-parser.js';
-import { parseAllSessionLogs } from '../parsers/session-log.js';
-import { scanAllSessions, type LastEntryType } from '../parsers/session-scanner.js';
+import {
+  initializeAllFileStates,
+  discoverSessionFiles,
+  getAllFileStates,
+  getOrBootstrap,
+  removeFileState,
+  machineStateToLastEntryType,
+  toSessionActivity,
+  type SessionFileState,
+  type DiscoveredFile,
+} from '../parsers/session-state.js';
+import type { LastEntryType } from '../parsers/session-scanner.js';
 import { discoverClaudePanes } from '../parsers/process-discovery.js';
 import type { ClaudePaneMapping } from '../parsers/process-discovery.js';
 import { getRecentEvents } from '../db.js';
@@ -40,9 +50,8 @@ function deriveSessionStatus(
 
   // Time tiers
   if (ageMs < FIVE_MINUTES_MS) {
-    // Active — derive from last JSONL entry type
     switch (lastEntryType) {
-      case 'user': return 'thinking';
+      case 'user': return 'working';
       case 'assistant-tool': return 'working';
       case 'assistant-question': return 'waiting-input';
       case 'assistant-text': return 'done';
@@ -62,7 +71,8 @@ export class Aggregator extends EventEmitter {
   private config: ConductorConfig;
   private staleTimer: ReturnType<typeof setInterval> | null = null;
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
-  private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map(), panePrompts: new Map(), byItermSession: new Map() };
+  private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map(), panePrompts: new Map(), byItermSession: new Map(), orphanItermSessions: [] };
+  private discoveredFiles = new Map<string, DiscoveredFile>();
 
   constructor(config: ConductorConfig) {
     super();
@@ -83,26 +93,20 @@ export class Aggregator extends EventEmitter {
     return this.state;
   }
 
-  /**
-   * Full parse of all data on startup.
-   */
   initialize(): void {
     console.log('[aggregator] Initializing state from filesystem...');
 
-    // Parse teams from ~/.claude/teams/
     const teams = parseAllTeams(this.config.claudeHome);
-
-    // Parse all tasks (team-named + UUID-named)
     const teamNameSet = new Set(teams.map((t) => t.name));
     const { byTeam: tasksByTeam, bySession: tasksBySession } = parseAllTasks(this.config.claudeHome, teamNameSet);
-
-    // Load events from SQLite
     const events = getRecentEvents(200);
 
-    // Scan filesystem for sessions and merge with hook events
-    const { sessions, projects } = this.mergeSessionSources(events);
+    // Bootstrap all session file states (incremental parser)
+    this.discoveredFiles = initializeAllFileStates(this.config.claudeHome);
 
-    // Cross-reference: mark sessions that are team leads
+    // Build sessions from file states + hook events
+    const { sessions, projects } = this.buildSessionsFromFileStates(events);
+
     for (const team of teams) {
       if (team.leadSessionId) {
         const session = sessions.find((s) => s.id === team.leadSessionId);
@@ -112,6 +116,8 @@ export class Aggregator extends EventEmitter {
       }
     }
 
+    const sessionActivities = this.buildSessionActivities();
+
     this.state = {
       teams,
       sessions,
@@ -119,7 +125,7 @@ export class Aggregator extends EventEmitter {
       tasksByTeam,
       tasksBySession,
       events,
-      sessionActivities: {},
+      sessionActivities,
       lastUpdated: new Date().toISOString(),
     };
 
@@ -129,30 +135,19 @@ export class Aggregator extends EventEmitter {
       `[aggregator] Initialized: ${teams.length} teams, ${totalTasks} tasks, ${events.length} events, ${sessions.length} sessions (${activeSessions} active), ${projects.length} projects`
     );
 
-    // Parse session activities from JSONL logs
-    this.refreshSessionActivities();
-
-    // Discover claude processes → tmux pane mappings
     this.refreshProcessDiscovery();
     this.discoveryTimer = setInterval(() => this.refreshProcessDiscovery(), 30_000);
 
-    // Start stale detection
     this.detectStaleness();
     this.staleTimer = setInterval(() => this.detectStaleness(), 60_000);
   }
 
-  /**
-   * Refresh all teams from ~/.claude/teams/
-   */
   refreshTeams(): void {
     this.state.teams = parseAllTeams(this.config.claudeHome);
     this.state.lastUpdated = new Date().toISOString();
     this.emitChange('teams_updated');
   }
 
-  /**
-   * Re-parse tasks for a specific team, or all tasks if no name given.
-   */
   refreshTasks(teamName?: string): void {
     if (teamName) {
       const tasks = parseAllTeamTasks(this.config.claudeHome, [teamName]);
@@ -167,22 +162,29 @@ export class Aggregator extends EventEmitter {
     this.emitChange('tasks_updated');
   }
 
-  /**
-   * Convenience: refresh everything.
-   */
   refreshAll(): void {
     this.refreshTeams();
     this.refreshTasks();
     this.refreshSessions();
   }
 
-  /**
-   * Re-scan filesystem for sessions and rebuild projects.
-   */
   refreshSessions(): void {
-    const { sessions, projects } = this.mergeSessionSources(this.state.events);
+    const newDiscovered = discoverSessionFiles(this.config.claudeHome);
 
-    // Preserve team lead markers
+    for (const [filePath] of newDiscovered) {
+      if (!this.discoveredFiles.has(filePath)) {
+        getOrBootstrap(filePath);
+      }
+    }
+    for (const [filePath] of this.discoveredFiles) {
+      if (!newDiscovered.has(filePath)) {
+        removeFileState(filePath);
+      }
+    }
+    this.discoveredFiles = newDiscovered;
+
+    const { sessions, projects } = this.buildSessionsFromFileStates(this.state.events);
+
     for (const team of this.state.teams) {
       if (team.leadSessionId) {
         const session = sessions.find((s) => s.id === team.leadSessionId);
@@ -192,73 +194,144 @@ export class Aggregator extends EventEmitter {
       }
     }
 
+    // Carry over paneIds from previous sessions to preserve stable assignments
+    const prevPaneIds = new Map<string, string>();
+    for (const s of this.state.sessions) {
+      if (s.paneId) prevPaneIds.set(s.id, s.paneId);
+    }
+    for (const s of sessions) {
+      const prevPane = prevPaneIds.get(s.id);
+      if (prevPane) s.paneId = prevPane;
+    }
+
     this.state.sessions = sessions;
     this.state.projects = projects;
     this.state.lastUpdated = new Date().toISOString();
 
-    // Re-apply pane mappings from process discovery
     this.applyPaneMappings();
 
     this.emitChange('sessions_updated');
     this.emitChange('projects_updated');
   }
 
-  /**
-   * Re-parse all session JSONL logs and update sessionActivities.
-   */
-  refreshSessionActivities(): void {
-    this.state.sessionActivities = parseAllSessionLogs(this.config.claudeHome);
+  private rederiveSessionStatuses(): void {
+    const fileStates = getAllFileStates();
+    let statusChanged = false;
+    let activityChanged = false;
+
+    // Build sessionId → filePath lookup
+    const sessionToFilePath = new Map<string, string>();
+    for (const [fp, discovered] of this.discoveredFiles) {
+      sessionToFilePath.set(discovered.sessionId, fp);
+    }
+
+    for (const session of this.state.sessions) {
+      const fp = sessionToFilePath.get(session.id);
+      const fileState = fp ? fileStates.get(fp) : undefined;
+
+      // Re-derive status
+      const lastEntryType: LastEntryType = fileState
+        ? machineStateToLastEntryType(fileState)
+        : 'unknown';
+      const ageMs = fileState
+        ? Date.now() - fileState.mtimeMs
+        : Date.now() - new Date(session.lastActivity).getTime();
+      const eventInfo = this.getLatestEventInfo(session.id);
+      const newStatus = deriveSessionStatus(ageMs, lastEntryType, eventInfo);
+
+      if (newStatus !== session.status) {
+        session.status = newStatus;
+        statusChanged = true;
+      }
+
+      // Re-derive activity (clear stale active flags)
+      if (fileState) {
+        const activity = toSessionActivity(fileState);
+        if (activity) {
+          const existing = this.state.sessionActivities[session.id];
+          if (existing?.active !== activity.active) {
+            this.state.sessionActivities[session.id] = activity;
+            activityChanged = true;
+          }
+        }
+      }
+    }
+
+    if (statusChanged) {
+      this.state.lastUpdated = new Date().toISOString();
+      this.emitChange('sessions_updated');
+    }
+    if (activityChanged) {
+      this.emitChange('session_activities_updated');
+    }
+  }
+
+  updateSessionFromFileState(filePath: string, fileState: SessionFileState): void {
+    const discovered = this.discoveredFiles.get(filePath);
+    if (!discovered) return;
+
+    const sessionId = discovered.sessionId;
+
+    const activity = toSessionActivity(fileState);
+    if (activity) {
+      this.state.sessionActivities[sessionId] = activity;
+    }
+
+    const existing = this.state.sessions.find((s) => s.id === sessionId);
+    if (existing) {
+      const lastEntryType = machineStateToLastEntryType(fileState);
+      const ageMs = Date.now() - fileState.mtimeMs;
+      const eventInfo = this.getLatestEventInfo(sessionId);
+      existing.status = deriveSessionStatus(ageMs, lastEntryType, eventInfo);
+
+      if (fileState.model) existing.model = fileState.model;
+      if (fileState.cwd) existing.cwd = fileState.cwd;
+      if (fileState.gitBranch) existing.gitBranch = fileState.gitBranch;
+      if (fileState.version) existing.version = fileState.version;
+      if (fileState.slug) existing.slug = fileState.slug;
+      if (fileState.tasksId) existing.tasksId = fileState.tasksId;
+      if (fileState.latestPrompt) existing.latestPrompt = fileState.latestPrompt;
+      existing.lastActivity = new Date(fileState.mtimeMs).toISOString();
+      existing.fileSize = fileState.fileSize;
+    }
+
     this.state.lastUpdated = new Date().toISOString();
+    this.emitChange('sessions_updated');
     this.emitChange('session_activities_updated');
   }
 
-  /**
-   * Merge a single session activity update into state.
-   */
-  updateSessionActivity(sessionId: string, activity: SessionActivity): void {
-    this.state.sessionActivities[sessionId] = activity;
-    this.state.lastUpdated = new Date().toISOString();
-    this.emitChange('session_activities_updated');
-  }
-
-  /**
-   * Add a new hook event and update session state.
-   */
   addEvent(event: HookEvent): void {
-    // Add to front (most recent first)
     this.state.events.unshift(event);
 
-    // Keep max 200 events in memory
     if (this.state.events.length > 200) {
       this.state.events = this.state.events.slice(0, 200);
     }
 
-    // Update session state from this event
     this.updateSessionFromEvent(event);
 
     this.state.lastUpdated = new Date().toISOString();
     this.emitChange('event_added');
   }
 
-  /**
-   * Discover claude processes and map them to tmux panes via process tree walking.
-   * Merges paneId into sessions that have a matching tasksId.
-   */
   refreshProcessDiscovery(): void {
     discoverClaudePanes().then((mapping) => {
       this.paneMapping = mapping;
+
+      if (mapping.byItermSession.size > 0) {
+        console.log(`[aggregator] iTerm2 PIDs: ${[...mapping.byItermSession.entries()].map(([pid, info]) => `${pid}→${info.itermId.slice(0,8)}(${info.name.slice(0,30)})`).join(', ')}`);
+        const itermTasksDirs = [...mapping.byTasksDir.entries()].filter(([, v]) => v.startsWith('iterm:'));
+        const itermSessionIds = [...mapping.bySessionId.entries()].filter(([, v]) => v.startsWith('iterm:'));
+        console.log(`[aggregator] iTerm2 in byTasksDir: ${itermTasksDirs.length}, bySessionId: ${itermSessionIds.length}`);
+        if (itermSessionIds.length > 0) console.log(`[aggregator] iTerm2 bySessionId: ${itermSessionIds.map(([k,v]) => `${k.slice(0,12)}→${v}`).join(', ')}`);
+      }
+
       this.applyPaneMappings();
     }).catch((err) => {
       console.error('[aggregator] Process discovery error:', err);
     });
   }
 
-  /**
-   * Apply pane mappings to sessions. Team member paneIds take priority.
-   * Matches via: tasksId from JSONL → byTasksDir, or tasksBySession keys → byTasksDir.
-   */
   private applyPaneMappings(): void {
-    // Build set of session IDs that already have paneId from team members
     const teamPaneSessionIds = new Set<string>();
     for (const team of this.state.teams) {
       for (const member of team.members) {
@@ -268,17 +341,13 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // Build reverse lookup: session ID → tasks dir name from tasksBySession
     const sessionToTasksDir = new Map<string, string>();
     for (const [dirName] of Object.entries(this.state.tasksBySession)) {
-      // tasksBySession is keyed by session-like identifiers
       sessionToTasksDir.set(dirName, dirName);
     }
 
-    // Sort sessions by priority: active > paused > idle
-    // This ensures actively running sessions get first pick of panes
     const statusPriority: Record<string, number> = {
-      'working': 0, 'thinking': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
+      'working': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
       'done': 1, 'paused': 1,
       'idle': 2,
     };
@@ -286,18 +355,20 @@ export class Aggregator extends EventEmitter {
       const pa = statusPriority[a.status] ?? 3;
       const pb = statusPriority[b.status] ?? 3;
       if (pa !== pb) return pa - pb;
-      // Within same priority, prefer more recently active
       return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
     });
 
-    // Track assigned paneIds to prevent double-assignment
     const assignedPaneIds = new Set<string>();
 
-    // Assign panes to sessions that likely still have a tmux pane open.
-    // A session's "idle" status just means no JSONL writes in 1hr+ — the claude
-    // process and pane can still be alive (user just hasn't interacted).
-    // Use 30-day window: tmux panes often stay open for weeks.
-    // Priority sorting ensures recent/active sessions claim panes first.
+    const validItermIds = new Set(
+      [...this.paneMapping.byItermSession.values()].map((info) => `iterm:${info.itermId}`)
+    );
+    for (const session of this.state.sessions) {
+      if (session.paneId?.startsWith('iterm:') && validItermIds.has(session.paneId)) {
+        assignedPaneIds.add(session.paneId);
+      }
+    }
+
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const hasLikelyPane = (s: Session) => {
       if (s.status !== 'idle') return true;
@@ -305,13 +376,11 @@ export class Aggregator extends EventEmitter {
       return age < THIRTY_DAYS_MS;
     };
 
-    // First pass: exact matching (tasks dir, session ID, lsof) for non-subagent sessions
     let changed = false;
     for (const session of sortedSessions) {
       if (teamPaneSessionIds.has(session.id)) continue;
-      if (session.isSubagent) continue; // Subagents inherit parent pane in pass 4
+      if (session.isSubagent) continue;
       if (!hasLikelyPane(session)) {
-        // Clear stale paneId on truly old sessions
         if (session.paneId) {
           session.paneId = undefined;
           changed = true;
@@ -319,17 +388,14 @@ export class Aggregator extends EventEmitter {
         continue;
       }
 
-      // Try matching: session.tasksId → byTasksDir
       let paneId = session.tasksId
         ? this.paneMapping.byTasksDir.get(session.tasksId)
         : undefined;
 
-      // Try matching: session ID itself as tasks dir name
       if (!paneId) {
         paneId = this.paneMapping.byTasksDir.get(session.id);
       }
 
-      // Try matching: session ID from lsof project directory paths
       if (!paneId) {
         const baseId = session.parentSessionId ?? session.id;
         paneId = this.paneMapping.bySessionId.get(baseId);
@@ -341,18 +407,18 @@ export class Aggregator extends EventEmitter {
           session.paneId = paneId;
           changed = true;
         }
-      } else if (session.paneId) {
+      } else if (session.paneId && !session.paneId.startsWith('iterm:')) {
         session.paneId = undefined;
         changed = true;
       }
     }
 
-    // Second pass: fuzzy title matching for remaining unmatched active sessions
+    // Second pass: fuzzy title matching
     if (this.paneMapping.byPaneTitle.size > 0) {
       for (const session of sortedSessions) {
         if (session.paneId || teamPaneSessionIds.has(session.id) || session.isSubagent) continue;
         if (!hasLikelyPane(session)) continue;
-        // Combine all session text signals for matching
+
         const textParts: string[] = [];
         if (session.initialPrompt) textParts.push(session.initialPrompt);
         if (session.latestPrompt) textParts.push(session.latestPrompt);
@@ -371,20 +437,16 @@ export class Aggregator extends EventEmitter {
           const titleWords = title.split(/\s+/).filter((w) => w.length > 2);
           if (titleWords.length === 0) continue;
 
-          // Count word overlap (bidirectional substring matching)
           const overlap = titleWords.filter((tw) => promptWords.some((pw) => pw.includes(tw) || tw.includes(pw))).length;
           const ratio = overlap / titleWords.length;
 
-          // Score: full title match (title is substring of prompt or vice versa)
           if (promptLower.includes(title) || title.includes(promptLower)) {
-            const score = title.length + 100; // Boost for full match
+            const score = title.length + 100;
             if (score > bestScore) {
               bestScore = score;
               bestPaneId = titlePaneId;
             }
-          }
-          // Score: word overlap — require >= 1 word AND > 50% of title words
-          else if (overlap >= 1 && ratio > 0.5 && overlap > bestScore) {
+          } else if (overlap >= 1 && ratio > 0.5 && overlap > bestScore) {
             bestScore = overlap;
             bestPaneId = titlePaneId;
           }
@@ -398,18 +460,14 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // Third pass: content-based matching using captured pane prompts
-    // Uses greedy score-based assignment: collect ALL (session, pane, score) candidates,
-    // sort by score descending, then assign greedily so the best matches always win.
+    // Third pass: content-based matching
     if (this.paneMapping.panePrompts.size > 0) {
-      // Build candidate list: all eligible session × unmatched pane pairs with scores
       const candidates: Array<{ sessionId: string; paneId: string; score: number }> = [];
 
       for (const session of sortedSessions) {
         if (session.paneId || teamPaneSessionIds.has(session.id) || session.isSubagent) continue;
         if (!hasLikelyPane(session)) continue;
 
-        // Strip trailing "..." from truncated prompts so substring matching works
         const sessionTexts: string[] = [];
         if (session.latestPrompt) sessionTexts.push(session.latestPrompt.replace(/\.{3}$/, '').toLowerCase());
         if (session.initialPrompt) sessionTexts.push(session.initialPrompt.replace(/\.{3}$/, '').toLowerCase());
@@ -422,12 +480,10 @@ export class Aggregator extends EventEmitter {
           for (const panePrompt of panePromptList) {
             const paneLower = panePrompt.toLowerCase();
             for (const sessionText of sessionTexts) {
-              // Exact substring match — session prompt appears in pane prompt (or vice versa)
               if (paneLower.includes(sessionText) || sessionText.includes(paneLower)) {
                 const matchLen = Math.min(paneLower.length, sessionText.length);
                 score = Math.max(score, matchLen + 100);
               } else {
-                // Word overlap fallback
                 const paneWords = paneLower.split(/\s+/).filter((w) => w.length > 2);
                 const sessWords = sessionText.split(/\s+/).filter((w) => w.length > 2);
                 if (paneWords.length === 0 || sessWords.length === 0) continue;
@@ -448,10 +504,8 @@ export class Aggregator extends EventEmitter {
         }
       }
 
-      // Sort by score descending — highest-confidence matches assigned first
       candidates.sort((a, b) => b.score - a.score);
 
-      // Greedy assignment: each session and pane can only be assigned once
       const assignedSessionIds = new Set<string>();
       for (const { sessionId, paneId } of candidates) {
         if (assignedSessionIds.has(sessionId) || assignedPaneIds.has(paneId)) continue;
@@ -465,13 +519,11 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // Pass 3.5: iTerm2 native session matching for unmatched sessions
-    // For claude processes in plain iTerm2 tabs (no tmux), match by iTerm2 session name vs session prompts
+    // Pass 3.5: iTerm2 native session matching
     if (this.paneMapping.byItermSession.size > 0) {
       const itermEntries = [...this.paneMapping.byItermSession.entries()];
       const matchedItermPids = new Set<number>();
 
-      // Mark iTerm PIDs that are already assigned via lsof (passes 1)
       for (const [pid, info] of itermEntries) {
         const itermPaneId = `iterm:${info.itermId}`;
         if (assignedPaneIds.has(itermPaneId)) {
@@ -482,7 +534,40 @@ export class Aggregator extends EventEmitter {
       const remainingIterm = itermEntries.filter(([pid]) => !matchedItermPids.has(pid));
 
       if (remainingIterm.length > 0) {
-        // Content matching: compare session prompts against iTerm2 session names
+        // Strategy A1: Exact session ID match (from JSONL file modification in discovery)
+        for (const [pid, info] of remainingIterm) {
+          if (matchedItermPids.has(pid) || !info.sessionId) continue;
+          const session = this.state.sessions.find(s =>
+            s.id === info.sessionId && !s.paneId && !s.isSubagent
+          );
+          if (session) {
+            const itermPaneId = `iterm:${info.itermId}`;
+            session.paneId = itermPaneId;
+            assignedPaneIds.add(itermPaneId);
+            matchedItermPids.add(pid);
+            changed = true;
+          }
+        }
+
+        // Strategy A2: Fallback to cwd matching for remaining unmatched iTerm PIDs
+        for (const [pid, info] of remainingIterm) {
+          if (matchedItermPids.has(pid) || !info.cwd) continue;
+
+          const cwdCandidates = sortedSessions.filter(s =>
+            !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent &&
+            hasLikelyPane(s) && s.cwd === info.cwd
+          );
+
+          if (cwdCandidates.length > 0) {
+            const session = cwdCandidates[0];
+            const itermPaneId = `iterm:${info.itermId}`;
+            session.paneId = itermPaneId;
+            assignedPaneIds.add(itermPaneId);
+            matchedItermPids.add(pid);
+            changed = true;
+          }
+        }
+
         for (const session of sortedSessions) {
           if (session.paneId || teamPaneSessionIds.has(session.id) || session.isSubagent) continue;
           if (!hasLikelyPane(session)) continue;
@@ -507,16 +592,13 @@ export class Aggregator extends EventEmitter {
             const nameLower = info.name.toLowerCase();
             const nameWords = nameLower.split(/\s+/).filter((w) => w.length > 2);
 
-            // Full substring match
             if (sessionText.includes(nameLower) || nameLower.includes(sessionText)) {
               const score = nameLower.length + 100;
               if (score > bestScore) {
                 bestScore = score;
                 bestPid = pid;
               }
-            }
-            // Word overlap
-            else if (nameWords.length > 0) {
+            } else if (nameWords.length > 0) {
               const overlap = nameWords.filter((nw) =>
                 sessionWords.some((sw) => sw.includes(nw) || nw.includes(sw))
               ).length;
@@ -538,14 +620,14 @@ export class Aggregator extends EventEmitter {
           }
         }
 
-        // Singleton fallback: one unmatched session + one unmatched iTerm2 session → match directly
-        const unmatchedSessions = sortedSessions.filter(
-          (s) => !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent && hasLikelyPane(s)
+        const unmatchedActiveSessions = sortedSessions.filter(
+          (s) => !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent &&
+            hasLikelyPane(s)
         );
         const unmatchedIterm = remainingIterm.filter(([pid]) => !matchedItermPids.has(pid));
 
-        if (unmatchedSessions.length === 1 && unmatchedIterm.length === 1) {
-          const [session] = unmatchedSessions;
+        if (unmatchedActiveSessions.length === 1 && unmatchedIterm.length === 1) {
+          const [session] = unmatchedActiveSessions;
           const [[pid, info]] = unmatchedIterm;
           const itermPaneId = `iterm:${info.itermId}`;
           session.paneId = itermPaneId;
@@ -556,7 +638,28 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // Fourth pass: propagate paneId from parent sessions to their subagents
+    // Pass 3.6: Orphan iTerm CWD matching (sessions where claude has exited)
+    if (this.paneMapping.orphanItermSessions.length > 0) {
+      for (const orphan of this.paneMapping.orphanItermSessions) {
+        if (!orphan.cwd) continue;
+        const itermPaneId = `iterm:${orphan.itermId}`;
+        if (assignedPaneIds.has(itermPaneId)) continue;
+
+        const cwdCandidates = sortedSessions.filter(s =>
+          !s.paneId && !teamPaneSessionIds.has(s.id) && !s.isSubagent &&
+          hasLikelyPane(s) && s.cwd === orphan.cwd
+        );
+
+        if (cwdCandidates.length === 1) {
+          const session = cwdCandidates[0];
+          session.paneId = itermPaneId;
+          assignedPaneIds.add(itermPaneId);
+          changed = true;
+        }
+      }
+    }
+
+    // Fourth pass: propagate to subagents
     for (const session of this.state.sessions) {
       if (!session.isSubagent || !session.parentSessionId) continue;
       const parent = this.state.sessions.find((s) => s.id === session.parentSessionId);
@@ -572,19 +675,16 @@ export class Aggregator extends EventEmitter {
     }
   }
 
-  /**
-   * Detect stale teams: all members inactive, config.json old, no recent events,
-   * and tmux panes gone.
-   */
   detectStaleness(): void {
-    // Get live tmux panes once for all teams
+    // Re-derive session statuses based on current time tiers
+    this.rederiveSessionStatuses();
+
     this.getLivePaneIds().then((livePanes) => {
       let changed = false;
 
       for (const team of this.state.teams) {
         const allInactive = team.members.length > 0 && team.members.every((m) => !m.isActive);
 
-        // Check config.json mtime > 2 hours
         const configPath = path.join(this.config.claudeHome, 'teams', team.name, 'config.json');
         let configStale = false;
         try {
@@ -594,8 +694,6 @@ export class Aggregator extends EventEmitter {
           configStale = true;
         }
 
-        // Check for recent events tied to any team member session
-        // Cross-reference with JSONL-discovered sessions via lead's subagentIds
         const memberSessionIds = new Set<string>();
         if (team.leadSessionId) {
           memberSessionIds.add(team.leadSessionId);
@@ -612,7 +710,6 @@ export class Aggregator extends EventEmitter {
           (e) => memberSessionIds.has(e.sessionId) && new Date(e.timestamp).getTime() > twoHoursAgo
         );
 
-        // Check if tmux panes still exist for members
         const allPanesGone = team.members.length > 0 && team.members.every(
           (m) => !m.tmuxPaneId || !livePanes.has(m.tmuxPaneId)
         );
@@ -633,9 +730,6 @@ export class Aggregator extends EventEmitter {
     });
   }
 
-  /**
-   * Clean up timers.
-   */
   destroy(): void {
     if (this.staleTimer) {
       clearInterval(this.staleTimer);
@@ -649,15 +743,9 @@ export class Aggregator extends EventEmitter {
 
   // --- Private helpers ---
 
-  /**
-   * Merge filesystem-scanned sessions with hook event status.
-   * Filesystem is the primary source; events enrich status.
-   */
-  private mergeSessionSources(events: HookEvent[]): { sessions: Session[]; projects: ProjectGroup[] } {
-    // 1. Scan filesystem for all sessions
-    const scanned = scanAllSessions(this.config.claudeHome);
+  private buildSessionsFromFileStates(events: HookEvent[]): { sessions: Session[]; projects: ProjectGroup[] } {
+    const fileStates = getAllFileStates();
 
-    // 2. Build event status map from hook events
     const eventStatusMap = new Map<string, { status: Session['status']; timestamp: string }>();
     for (const event of events) {
       const existing = eventStatusMap.get(event.sessionId);
@@ -669,59 +757,113 @@ export class Aggregator extends EventEmitter {
       }
     }
 
-    // 3. Merge: filesystem provides base, events enrich status, activities override
-    const sessions: Session[] = scanned.map((s) => {
-      const eventInfo = eventStatusMap.get(s.id);
-      const ageMs = Date.now() - new Date(s.lastActivity).getTime();
-      let status = deriveSessionStatus(ageMs, s.lastEntryType, eventInfo);
+    const parentSubagentMap = new Map<string, string[]>();
+    const sessions: Session[] = [];
 
-      // If session has active real-time activity, override idle/paused (not done — done means finished)
-      const activity = this.state.sessionActivities[s.id];
-      if (activity?.active && (status === 'idle' || status === 'paused')) {
-        status = activity.thinking ? 'thinking' : 'working';
+    for (const [filePath, discovered] of this.discoveredFiles) {
+      const state = fileStates.get(filePath);
+
+      let lastActivity: string;
+      let fileSize: number;
+      if (state) {
+        lastActivity = new Date(state.mtimeMs).toISOString();
+        fileSize = state.fileSize;
+      } else {
+        try {
+          const stat = fs.statSync(filePath);
+          lastActivity = stat.mtime.toISOString();
+          fileSize = stat.size;
+        } catch {
+          continue;
+        }
       }
 
-      return {
-        id: s.id,
-        project: s.project,
-        projectDir: s.projectDir,
-        status,
-        lastActivity: s.lastActivity,
-        model: s.model,
-        cwd: s.cwd,
-        gitBranch: s.gitBranch,
-        version: s.version,
-        slug: s.slug,
-        initialPrompt: s.initialPrompt,
-        latestPrompt: s.latestPrompt,
-        tasksId: s.tasksId,
-        isSubagent: s.isSubagent,
-        parentSessionId: s.parentSessionId,
-        agentId: s.agentId,
-        subagentIds: s.subagentIds,
-        fileSize: s.fileSize,
-      };
-    });
+      const lastEntryType: LastEntryType = state
+        ? machineStateToLastEntryType(state)
+        : 'unknown';
+      const eventInfo = eventStatusMap.get(discovered.sessionId);
+      const ageMs = Date.now() - new Date(lastActivity).getTime();
+      const status = deriveSessionStatus(ageMs, lastEntryType, eventInfo);
 
-    // 4. Build project groups from parent sessions
+      sessions.push({
+        id: discovered.sessionId,
+        project: discovered.project,
+        projectDir: discovered.projectDir,
+        status,
+        lastActivity,
+        model: state?.model,
+        cwd: state?.cwd,
+        gitBranch: state?.gitBranch,
+        version: state?.version,
+        slug: state?.slug,
+        initialPrompt: state?.initialPrompt,
+        latestPrompt: state?.latestPrompt,
+        tasksId: state?.tasksId,
+        isSubagent: discovered.isSubagent,
+        parentSessionId: discovered.parentSessionId,
+        agentId: discovered.agentId,
+        subagentIds: [],
+        fileSize,
+      });
+
+      if (discovered.isSubagent && discovered.parentSessionId && discovered.agentId) {
+        const existing = parentSubagentMap.get(discovered.parentSessionId);
+        if (existing) {
+          existing.push(discovered.agentId);
+        } else {
+          parentSubagentMap.set(discovered.parentSessionId, [discovered.agentId]);
+        }
+      } else if (!discovered.isSubagent) {
+        if (!parentSubagentMap.has(discovered.sessionId)) {
+          parentSubagentMap.set(discovered.sessionId, []);
+        }
+      }
+    }
+
+    for (const session of sessions) {
+      if (!session.isSubagent) {
+        session.subagentIds = parentSubagentMap.get(session.id) ?? [];
+      }
+    }
+
     const projectMap = new Map<string, ProjectGroup>();
     for (const session of sessions) {
       if (session.isSubagent) continue;
       let group = projectMap.get(session.projectDir);
       if (!group) {
-        group = {
-          name: session.project,
-          dirName: session.projectDir,
-          sessions: [],
-        };
+        group = { name: session.project, dirName: session.projectDir, sessions: [] };
         projectMap.set(session.projectDir, group);
       }
       group.sessions.push(session);
     }
 
-    const projects = Array.from(projectMap.values());
+    return { sessions, projects: Array.from(projectMap.values()) };
+  }
 
-    return { sessions, projects };
+  private buildSessionActivities(): Record<string, SessionActivity> {
+    const result: Record<string, SessionActivity> = {};
+    const fileStates = getAllFileStates();
+
+    for (const [, state] of fileStates) {
+      const activity = toSessionActivity(state);
+      if (activity && activity.active) {
+        result[activity.sessionId] = activity;
+      }
+    }
+
+    return result;
+  }
+
+  private getLatestEventInfo(sessionId: string): { status: Session['status']; timestamp: string } | undefined {
+    for (const event of this.state.events) {
+      if (event.sessionId === sessionId) {
+        return {
+          status: this.statusFromEventType(event.type),
+          timestamp: event.timestamp,
+        };
+      }
+    }
+    return undefined;
   }
 
   private updateSessionFromEvent(event: HookEvent): void {
@@ -769,7 +911,6 @@ export class Aggregator extends EventEmitter {
       const { stdout } = await execFileAsync('tmux', ['list-panes', '-a', '-F', '#{pane_id}']);
       return new Set(stdout.trim().split('\n').filter(Boolean));
     } catch {
-      // tmux not running or not installed
       return new Set();
     }
   }

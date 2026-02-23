@@ -23,7 +23,6 @@ const byUrgency = (a: Session, b: Session) => {
 
 const COLUMNS: ColumnDef[] = [
   { key: 'working', title: 'Working', color: 'bg-status-green', statuses: ['working'], sort: byRecentFirst },
-  { key: 'thinking', title: 'Thinking', color: 'bg-status-blue', statuses: ['thinking'], sort: byRecentFirst },
   { key: 'needs-you', title: 'Needs You', color: 'bg-status-yellow', statuses: ['waiting-approval', 'waiting-input', 'error'], sort: byUrgency },
   { key: 'done', title: 'Done', color: 'bg-status-gray', statuses: ['done', 'paused', 'idle'], sort: byRecentFirst },
 ];

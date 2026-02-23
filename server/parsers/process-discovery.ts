@@ -1,12 +1,18 @@
-import { execFile } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 export interface ItermSessionInfo {
   itermId: string;
   tty: string;
   name: string;
+  cwd?: string;
+  sessionId?: string;
 }
 
 export interface ClaudePaneMapping {
@@ -22,6 +28,8 @@ export interface ClaudePaneMapping {
   panePrompts: Map<string, string[]>;
   /** Map of claude PID → iTerm2 session info (non-tmux sessions) */
   byItermSession: Map<number, ItermSessionInfo>;
+  /** iTerm sessions with no matching claude process (for CWD-based matching) */
+  orphanItermSessions: Array<{ itermId: string; tty: string; name: string; cwd?: string }>;
 }
 
 /**
@@ -41,6 +49,7 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
     byPaneTitle: new Map(),
     panePrompts: new Map(),
     byItermSession: new Map(),
+    orphanItermSessions: [],
   };
 
   try {
@@ -49,7 +58,6 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
 
     // Step 2: Find all claude processes
     const claudePids = await findClaudePids();
-    if (claudePids.length === 0) return result;
 
     // Build set of pane PIDs for fast lookup
     const panePidSet = new Set(paneMap.keys());
@@ -71,20 +79,79 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
 
     // Step 3b: For unmapped PIDs, try iTerm2 native session matching
     const unmappedPids = claudePids.filter(pid => !pidToPaneId.has(pid));
-    if (unmappedPids.length > 0) {
-      const itermSessions = await getItermSessions();
-      if (itermSessions.length > 0) {
-        const ttyMap = await getProcessTtys(unmappedPids);
-        for (const [pid, tty] of ttyMap) {
-          const match = matchTtyToIterm(tty, itermSessions);
-          if (match) {
-            result.byItermSession.set(pid, {
-              itermId: match.uniqueId,
-              tty: match.tty,
-              name: match.name,
-            });
+    const itermSessions = await getItermSessions();
+    if (unmappedPids.length > 0 && itermSessions.length > 0) {
+      console.log(`[discovery] Step 3b: ${unmappedPids.length} unmapped PIDs: ${unmappedPids.join(', ')}`);
+      console.log(`[discovery] Step 3b: got ${itermSessions.length} iTerm2 sessions`);
+      const ttyMap = await getProcessTtys(unmappedPids);
+      console.log(`[discovery] Step 3b: TTY map: ${[...ttyMap.entries()].map(([p,t]) => `${p}→${t}`).join(', ')}`);
+      for (const [pid, tty] of ttyMap) {
+        const match = matchTtyToIterm(tty, itermSessions);
+        if (match) {
+          result.byItermSession.set(pid, {
+            itermId: match.uniqueId,
+            tty: match.tty,
+            name: match.name,
+          });
+        }
+      }
+    }
+
+    // Step 3c: Extract cwd for iTerm-matched PIDs (for cwd-based session matching)
+    for (const [pid, info] of result.byItermSession) {
+      try {
+        const { stdout } = await execFileAsync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], { timeout: 3000 });
+        const cwdLine = stdout.split('\n').find(l => l.startsWith('n/'));
+        if (cwdLine) {
+          info.cwd = cwdLine.slice(1);
+        }
+      } catch {
+        // Best effort
+      }
+    }
+
+    // Step 3d: Derive session ID for iTerm PIDs by matching file creation/modification times.
+    // Claude doesn't keep JSONL files open, so lsof won't find them. Strategy:
+    // 1. Filter to files created AFTER the PID started (within the PID's lifetime)
+    // 2. Among those, pick the one with the most recent mtime (the currently active file)
+    // This handles context compaction where claude creates a new JSONL mid-session.
+    const claudeHome = path.join(os.homedir(), '.claude');
+    const pidStartTimes = await getPidStartTimes([...result.byItermSession.keys()]);
+    for (const [pid, info] of result.byItermSession) {
+      if (!info.cwd || info.sessionId) continue;
+      const pidStart = pidStartTimes.get(pid);
+      if (!pidStart) continue;
+      try {
+        const projectDir = info.cwd.replace(/\//g, '-');
+        const sessionsDir = path.join(claudeHome, 'projects', projectDir);
+        const files = fs.readdirSync(sessionsDir).filter(f => f.endsWith('.jsonl') && !f.includes(':'));
+        if (files.length === 0) continue;
+
+        // Filter to files created after PID started, then pick most recently modified
+        let bestFile = '';
+        let bestMtime = 0;
+        const now = Date.now();
+        for (const f of files) {
+          try {
+            const stat = fs.statSync(path.join(sessionsDir, f));
+            // File must be created after PID started (with 60s tolerance)
+            // and modified recently (within 5 minutes)
+            const createdAfterPid = stat.birthtimeMs >= pidStart - 60_000;
+            const recentlyModified = now - stat.mtimeMs < 5 * 60 * 1000;
+            if (createdAfterPid && recentlyModified && stat.mtimeMs > bestMtime) {
+              bestMtime = stat.mtimeMs;
+              bestFile = f;
+            }
+          } catch {
+            // Skip
           }
         }
+
+        if (bestFile) {
+          info.sessionId = bestFile.replace('.jsonl', '');
+        }
+      } catch {
+        // Best effort
       }
     }
 
@@ -116,6 +183,13 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
       }
     }
 
+    // Step 4b: Register iTerm session IDs derived from JSONL files (step 3d) into bySessionId
+    for (const [, info] of result.byItermSession) {
+      if (info.sessionId) {
+        result.bySessionId.set(info.sessionId, `iterm:${info.itermId}`);
+      }
+    }
+
     // Step 5: Build pane title map for fuzzy matching (tmux only)
     const claudePaneIds = new Set(pidToPaneId.values());
     for (const [paneId, rawTitle] of titleMap) {
@@ -131,8 +205,57 @@ export async function discoverClaudePanes(): Promise<ClaudePaneMapping> {
       await capturePanePrompts([...claudePaneIds], result.panePrompts);
     }
 
+    // Step 7: Collect orphan iTerm sessions (sessions with no matching claude process)
+    if (itermSessions.length > 0) {
+      const matchedItermIds = new Set(
+        [...result.byItermSession.values()].map(info => info.itermId)
+      );
+      for (const session of itermSessions) {
+        if (matchedItermIds.has(session.uniqueId)) continue;
+        // Skip tmux client tabs — those are tmux connections, not direct sessions
+        if (session.name.toLowerCase() === 'tmux') continue;
+
+        const ttyNum = parseTtyNumber(session.tty);
+        if (ttyNum === null) continue;
+
+        let cwd: string | undefined;
+        // Check TTY and TTY+1 (figterm allocates child PTY)
+        for (const offset of [0, 1]) {
+          const checkTty = `ttys${String(ttyNum + offset).padStart(3, '0')}`;
+          try {
+            const { stdout } = await execFileAsync('ps', ['-t', checkTty, '-o', 'pid=,comm='], { timeout: 3000 });
+            for (const line of stdout.trim().split('\n')) {
+              if (!line.trim()) continue;
+              const parts = line.trim().split(/\s+/);
+              const shellPid = parseInt(parts[0], 10);
+              const comm = parts.slice(1).join(' ');
+              if (isNaN(shellPid)) continue;
+              if (/^-?(zsh|bash|fish)$/.test(comm)) {
+                try {
+                  const { stdout: lsofOut } = await execFileAsync('lsof', ['-a', '-p', String(shellPid), '-d', 'cwd', '-Fn'], { timeout: 3000 });
+                  const cwdLine = lsofOut.split('\n').find(l => l.startsWith('n/'));
+                  if (cwdLine) {
+                    cwd = cwdLine.slice(1);
+                  }
+                } catch { /* best effort */ }
+              }
+              if (cwd) break;
+            }
+            if (cwd) break;
+          } catch { /* TTY may not exist */ }
+        }
+
+        result.orphanItermSessions.push({
+          itermId: session.uniqueId,
+          tty: session.tty,
+          name: session.name,
+          cwd,
+        });
+      }
+    }
+
     const itermCount = result.byItermSession.size;
-    console.log(`[discovery] Found ${claudePids.length} claude PIDs → ${pidToPaneId.size} tmux panes, ${itermCount} iTerm2 sessions, ${result.panePrompts.size} with prompts`);
+    console.log(`[discovery] Found ${claudePids.length} claude PIDs → ${pidToPaneId.size} tmux panes, ${itermCount} iTerm2 sessions, ${result.orphanItermSessions.length} orphan iTerm, ${result.panePrompts.size} with prompts`);
 
   } catch {
     // Discovery is best-effort — failures shouldn't crash the server
@@ -305,13 +428,21 @@ interface ItermSessionRaw {
   name: string;
 }
 
+/** Persistent path for the iTerm2 query script */
+const ITERM_SCRIPT_PATH = path.join(os.tmpdir(), 'conductor-iterm-query.applescript');
+
+/** Cached iTerm sessions (refreshed on successful query, used as fallback on failure) */
+let cachedItermSessions: ItermSessionRaw[] = [];
+
 /**
  * Get all iTerm2 sessions via AppleScript.
- * Returns {tty, uniqueId, name} for each session across all windows/tabs.
+ * Writes the script to a temp file and runs osascript on it.
+ * Caches the result so flaky failures still return the last known state.
  */
 async function getItermSessions(): Promise<ItermSessionRaw[]> {
-  try {
-    const script = [
+  // Ensure the script file exists
+  if (!fs.existsSync(ITERM_SCRIPT_PATH)) {
+    fs.writeFileSync(ITERM_SCRIPT_PATH, [
       'tell application "iTerm2"',
       '  set tb to character id 9',
       '  set lf to character id 10',
@@ -325,8 +456,19 @@ async function getItermSessions(): Promise<ItermSessionRaw[]> {
       '  end repeat',
       '  return output',
       'end tell',
-    ].join('\n');
-    const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 5000 });
+    ].join('\n'));
+  }
+
+  try {
+    // Try execFile first (direct, no shell), fall back to exec through shell
+    let stdout: string;
+    try {
+      const result = await execFileAsync('osascript', [ITERM_SCRIPT_PATH], { timeout: 10000 });
+      stdout = result.stdout;
+    } catch {
+      const result = await execAsync(`osascript '${ITERM_SCRIPT_PATH}'`, { timeout: 10000 });
+      stdout = result.stdout;
+    }
     const sessions: ItermSessionRaw[] = [];
     for (const line of stdout.trim().split(/[\r\n]+/)) {
       if (!line.trim()) continue;
@@ -339,10 +481,14 @@ async function getItermSessions(): Promise<ItermSessionRaw[]> {
         });
       }
     }
+    cachedItermSessions = sessions;
     return sessions;
   } catch {
-    // iTerm2 not running or AppleScript failed
-    return [];
+    // Return cached sessions on failure (flaky AppleScript)
+    if (cachedItermSessions.length > 0) {
+      console.log(`[discovery] getItermSessions failed, using ${cachedItermSessions.length} cached sessions`);
+    }
+    return cachedItermSessions;
   }
 }
 
@@ -411,6 +557,25 @@ function matchTtyToIterm(claudeTty: string, itermSessions: ItermSessionRaw[]): I
   }
 
   return null;
+}
+
+/**
+ * Get the start times (in epoch ms) for given PIDs using `ps -o lstart=`.
+ */
+async function getPidStartTimes(pids: number[]): Promise<Map<number, number>> {
+  const result = new Map<number, number>();
+  for (const pid of pids) {
+    try {
+      const { stdout } = await execFileAsync('ps', ['-o', 'lstart=', '-p', String(pid)]);
+      const startTime = new Date(stdout.trim()).getTime();
+      if (!isNaN(startTime)) {
+        result.set(pid, startTime);
+      }
+    } catch {
+      // Process may have exited
+    }
+  }
+  return result;
 }
 
 /**

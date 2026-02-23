@@ -22,8 +22,7 @@ interface KanbanCardProps {
 function statusDotColor(status: Session['status']): string {
   switch (status) {
     case 'working': return 'bg-status-green';
-    case 'done': return 'bg-status-green';
-    case 'thinking': return 'bg-status-blue';
+    case 'done': return 'bg-status-done';
     case 'waiting-input':
     case 'waiting-approval': return 'bg-status-yellow';
     case 'error': return 'bg-status-red';
@@ -105,9 +104,9 @@ export default function KanbanCard({
   sessionTeamMap,
 }: KanbanCardProps) {
   const [subExpanded, setSubExpanded] = useState(() =>
-    subagents.some((s) => s.status === 'working' || s.status === 'thinking')
+    subagents.some((s) => s.status === 'working')
   );
-  const isActive = session.status === 'working' || session.status === 'thinking';
+  const isActive = session.status === 'working';
   const model = shortModel(session.model ?? sessionActivity?.model);
   const cwd = shortCwd(session.cwd);
   const needsAction = session.status === 'waiting-input' || session.status === 'waiting-approval' || session.status === 'error';
@@ -123,7 +122,7 @@ export default function KanbanCard({
   const totalTasks = tasks.length;
 
   const activeSubCount = subagents.filter(
-    (s) => s.status === 'working' || s.status === 'thinking'
+    (s) => s.status === 'working'
   ).length;
 
   const cardContent = (
@@ -141,7 +140,14 @@ export default function KanbanCard({
           <div className="flex items-start gap-2">
             <span className="text-sm font-medium line-clamp-2 flex-1">{title}</span>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
-              {paneId && <Terminal className="h-3 w-3 text-muted-foreground" />}
+              {paneId && (
+                <div className="flex items-center gap-0.5">
+                  <Terminal className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">
+                    {paneId.startsWith('iterm:') ? 'iTerm' : 'tmux'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -155,8 +161,8 @@ export default function KanbanCard({
             'text-[10px] px-1.5 py-0',
             session.status === 'error' && 'text-status-red border-status-red/30',
             (session.status === 'waiting-input' || session.status === 'waiting-approval') && 'text-status-yellow border-status-yellow/30',
-            (session.status === 'working' || session.status === 'done') && 'text-status-green border-status-green/30',
-            session.status === 'thinking' && 'text-status-blue border-status-blue/30'
+            session.status === 'working' && 'text-status-green border-status-green/30',
+            session.status === 'done' && 'text-status-done border-status-done/30'
           )}
         >
           {sessionStatusLabel(session.status)}
@@ -237,7 +243,7 @@ export default function KanbanCard({
             <CollapsibleContent className="pl-4 pr-2 pb-1 space-y-1.5 overflow-hidden">
               {subagents.map((sub) => {
                 const subActivity = subagentActivities[sub.id];
-                const subIsActive = sub.status === 'working' || sub.status === 'thinking';
+                const subIsActive = sub.status === 'working';
                 const subModel = shortModel(sub.model ?? subActivity?.model);
                 return (
                   <div key={sub.id} className="rounded bg-secondary/30 px-2 py-1.5 overflow-hidden">
@@ -259,8 +265,8 @@ export default function KanbanCard({
                           'text-[9px] px-1 py-0 shrink-0',
                           sub.status === 'error' && 'text-status-red border-status-red/30',
                           (sub.status === 'waiting-input' || sub.status === 'waiting-approval') && 'text-status-yellow border-status-yellow/30',
-                          (sub.status === 'working' || sub.status === 'done') && 'text-status-green border-status-green/30',
-                          sub.status === 'thinking' && 'text-status-blue border-status-blue/30'
+                          sub.status === 'working' && 'text-status-green border-status-green/30',
+                          sub.status === 'done' && 'text-status-done border-status-done/30'
                         )}
                       >
                         {sessionStatusLabel(sub.status)}

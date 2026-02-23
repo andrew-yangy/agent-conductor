@@ -13,7 +13,7 @@ export default function DashboardPage() {
 
   // Count parent sessions only (not subagents)
   const parentSessions = sessions.filter((s) => !s.isSubagent);
-  const activeSessions = parentSessions.filter((s) => s.status === 'working' || s.status === 'thinking').length;
+  const activeSessions = parentSessions.filter((s) => s.status === 'working').length;
   const totalSessions = parentSessions.length;
 
   const attentionSessions = sessions.filter(

@@ -57,12 +57,12 @@ export default function PlanViewer({ plans }: PlanViewerProps) {
 
   const runningSlugs = new Set(
     sessions
-      .filter((s) => s.slug && ['working', 'waiting-approval', 'waiting-input', 'thinking'].includes(s.status))
+      .filter((s) => s.slug && ['working', 'waiting-approval', 'waiting-input'].includes(s.status))
       .map((s) => s.slug!)
   );
   const doneSlugs = new Set(
     sessions
-      .filter((s) => s.slug && !['working', 'waiting-approval', 'waiting-input', 'thinking'].includes(s.status))
+      .filter((s) => s.slug && !['working', 'waiting-approval', 'waiting-input'].includes(s.status))
       .map((s) => s.slug!)
   );
 
