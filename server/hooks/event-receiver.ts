@@ -18,8 +18,11 @@ function truncate(str: string, max: number): string {
   return str.length > max ? str.slice(0, max) : str;
 }
 
-export function processEvent(body: RawEventBody): HookEvent {
-  // Validate and sanitize fields
+/**
+ * Validate and sanitize event body fields without persisting.
+ * Exported for testability.
+ */
+export function sanitizeEventBody(body: RawEventBody): Omit<HookEvent, 'id'> {
   const type = truncate(typeof body.type === 'string' ? body.type : 'unknown', 128);
   const sessionId = truncate(typeof body.sessionId === 'string' ? body.sessionId : 'unknown', 256);
   const message = truncate(
@@ -40,15 +43,12 @@ export function processEvent(body: RawEventBody): HookEvent {
     metadata = undefined;
   }
 
-  const event: HookEvent = {
-    id: crypto.randomUUID(),
-    type,
-    sessionId,
-    timestamp,
-    message,
-    project,
-    metadata,
-  };
+  return { type, sessionId, timestamp, message, project, metadata };
+}
+
+export function processEvent(body: RawEventBody): HookEvent {
+  const sanitized = sanitizeEventBody(body);
+  const event: HookEvent = { id: crypto.randomUUID(), ...sanitized };
 
   // Persist to SQLite
   insertEvent(event);

@@ -9,6 +9,7 @@
     "dev:client": "vite",
     "build": "vite build",
     "start": "node dist-server/index.js",
+    "test": "node --import tsx --test 'server/**/*.test.ts'",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "preview": "vite preview"
