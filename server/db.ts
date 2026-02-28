@@ -12,9 +12,16 @@ let db: Database.Database | null = null;
 export function getDb(): Database.Database {
   if (db) return db;
 
-  fs.mkdirSync(DB_DIR, { recursive: true });
+  fs.mkdirSync(DB_DIR, { recursive: true, mode: 0o700 });
 
   db = new Database(DB_PATH);
+
+  // Set restrictive permissions on the database file
+  try {
+    fs.chmodSync(DB_PATH, 0o600);
+  } catch {
+    // May fail if file was just created by Database constructor — that's OK
+  }
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
 

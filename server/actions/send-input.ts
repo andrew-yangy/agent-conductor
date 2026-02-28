@@ -8,7 +8,12 @@ const execFileAsync = promisify(execFile);
 const TMUX_PANE_ID_REGEX = /^%\d+$/;
 
 function escapeAppleScript(str: string): string {
-  return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return str
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
 }
 
 function validateOwnership(

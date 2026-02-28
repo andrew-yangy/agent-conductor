@@ -30,10 +30,10 @@ function defaultConfig(): ConductorConfig {
 export function loadConfig(): ConductorConfig {
   try {
     if (!fs.existsSync(CONFIG_PATH)) {
-      // Create config directory and default config
-      fs.mkdirSync(CONFIG_DIR, { recursive: true });
+      // Create config directory and default config with restrictive permissions
+      fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
       const defaults = defaultConfig();
-      fs.writeFileSync(CONFIG_PATH, JSON.stringify(defaults, null, 2), 'utf-8');
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(defaults, null, 2), { encoding: 'utf-8', mode: 0o600 });
       console.log(`[config] Created default config at ${CONFIG_PATH}`);
       return resolveConfig(defaults);
     }
@@ -63,8 +63,8 @@ export function loadConfig(): ConductorConfig {
 }
 
 export function saveConfig(config: ConductorConfig): void {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });
 }
 
 function resolveConfig(config: ConductorConfig): ConductorConfig {

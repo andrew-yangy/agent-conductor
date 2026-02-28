@@ -4,6 +4,15 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 const PANE_ID_REGEX = /^%\d+$/;
+const TTY_REGEX = /^\/dev\/ttys\d+$/;
+
+/**
+ * Validate that a TTY path matches the expected format.
+ * Prevents injection via malicious tty values in AppleScript strings.
+ */
+function isValidTty(tty: string): boolean {
+  return TTY_REGEX.test(tty);
+}
 
 /**
  * Extract the numeric suffix from a tty path like "/dev/ttys060" → 60.
@@ -86,6 +95,11 @@ async function bringITermToFront(): Promise<void> {
  * and select that tab.
  */
 async function activateITermTab(tmuxClientTty: string): Promise<void> {
+  // Validate TTY format to prevent AppleScript injection
+  if (!isValidTty(tmuxClientTty)) {
+    return;
+  }
+
   const targetNum = ttyNumber(tmuxClientTty);
 
   if (targetNum !== null) {
