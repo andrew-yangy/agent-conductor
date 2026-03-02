@@ -1,0 +1,14 @@
+{
+  "id": "conductor-batch-hooks-adoption",
+  "title": "Directive: Adopt Claude Code /batch and HTTP hooks for conductor",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": "conductor-batch-hooks-adoption-2026-03-02",
+  "backlog_sources": []
+}

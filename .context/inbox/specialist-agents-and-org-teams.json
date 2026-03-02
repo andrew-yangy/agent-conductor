@@ -1,0 +1,14 @@
+{
+  "id": "specialist-agents-and-org-teams",
+  "title": "Specialist Agents & Org Teams",
+  "status": "pending",
+  "created": "2026-03-02",
+  "completed": null,
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

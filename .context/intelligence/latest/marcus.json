@@ -1,0 +1,20 @@
+{
+  "agent": "marcus",
+  "domain": "product",
+  "scout_date": "2026-03-02",
+  "intelligence": [
+    {"id": "au-marketplace-consolidation", "type": "market_shift", "urgency": "this_month", "title": "AU marketplace consolidation — Catch/MyDeal gone, global players dominate", "detail": "Amazon 60% AU reach, Temu $2.6B AU sales, 47% penetration. Amazon launched Haul AU. Fewer local marketplaces.", "products_affected": ["buywisely", "sellwisely"]},
+    {"id": "price-tracking-pain-points", "type": "user_signal", "urgency": "this_week", "title": "AU consumers frustrated with broken price tracking", "detail": "CamelCamelCamel often incorrect for Amazon AU. Keepa worse. PriceHipster lost Coles. Woolies missing from all services.", "products_affected": ["buywisely"]},
+    {"id": "b2b-monitoring-market-growth", "type": "market_shift", "urgency": "this_month", "title": "B2B competitor monitoring market hits $710M, projected $1.4B by 2033", "detail": "Tools cost $100-$1000/mo. Key players: Prisync, Price2Spy, Competera, Intelligence Node, DataWeave.", "products_affected": ["sellwisely"]},
+    {"id": "competitor-tool-pain-points", "type": "user_signal", "urgency": "this_month", "title": "Prisync/Price2Spy users complain: scraping errors, clunky UX, hostile cancellation", "products_affected": ["sellwisely"]},
+    {"id": "temu-trust-gap", "type": "opportunity", "urgency": "this_week", "title": "Only 12% trust Temu quality despite 47% penetration", "detail": "Massive trust gap. Consumers buy on price but don't trust quality.", "products_affected": ["buywisely"]},
+    {"id": "pricing-api-competitive-landscape", "type": "competitor_move", "urgency": "this_month", "title": "PriceAPI, Price.com, Sovrn offer pricing data APIs — none AU-focused", "products_affected": ["pricesapi"]},
+    {"id": "us-market-sme-gap", "type": "opportunity", "urgency": "this_month", "title": "US competitor monitoring gap: enterprise tools $1K+/mo, SMBs underserved", "products_affected": ["sellwisely"]},
+    {"id": "map-illegal-in-australia", "type": "advisory", "urgency": "fyi", "title": "MAP enforcement illegal in Australia", "products_affected": ["sellwisely"]},
+    {"id": "ai-repricing-trend", "type": "market_shift", "urgency": "this_month", "title": "AI-driven dynamic repricing becoming table stakes", "products_affected": ["sellwisely"]},
+    {"id": "au-ecommerce-growth-trajectory", "type": "market_shift", "urgency": "fyi", "title": "AU e-commerce $43.6B, growing 21.87% CAGR to $108B by 2030", "products_affected": ["buywisely", "sellwisely", "pricesapi"]},
+    {"id": "ozbargain-community-toxicity", "type": "user_signal", "urgency": "fyi", "title": "OzBargain community increasingly toxic", "products_affected": ["buywisely"]},
+    {"id": "api-economy-growth", "type": "market_shift", "urgency": "fyi", "title": "API economy at $16.29B with 34% CAGR", "products_affected": ["pricesapi"]}
+  ],
+  "summary": "AU e-commerce consolidating around global players. SellWisely enters $710M market with documented competitor pain points. PricesAPI has defensible niche — no competing API focuses on AU retail data."
+}

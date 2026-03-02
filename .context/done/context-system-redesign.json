@@ -1,0 +1,16 @@
+{
+  "id": "context-system-redesign",
+  "title": "Context System Redesign — From File Store to Ticketing System",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-03",
+  "weight": "strategic",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [
+    "agent-conductor/context-system-redesign"
+  ],
+  "report": "context-system-redesign-2026-03-03",
+  "backlog_sources": []
+}

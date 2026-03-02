@@ -1,0 +1,14 @@
+{
+  "id": "complete-option-b-goal-structure",
+  "title": "Complete Option B: Structured Goals — Finish What Was Started",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": "complete-option-b-goal-structure-2026-03-02",
+  "backlog_sources": []
+}

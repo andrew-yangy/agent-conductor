@@ -1,0 +1,11 @@
+{
+  "id": "conductor-review-quality",
+  "title": "Conductor Review Quality",
+  "state": "active",
+  "category": "framework",
+  "created": "2026-02-15",
+  "description": "Ensure the conductor's review pipeline catches real issues -- not just compilation errors but work that misses the CEO's intent.",
+  "okrs_file": "okrs.md",
+  "features": [],
+  "last_activity": "2026-03-01"
+}

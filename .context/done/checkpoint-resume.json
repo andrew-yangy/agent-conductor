@@ -1,0 +1,16 @@
+{
+  "id": "checkpoint-resume",
+  "title": "Directive: Checkpoint-Resume for Directives",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [
+    "agent-conductor/checkpoint-resume"
+  ],
+  "report": "checkpoint-resume-2026-03-02",
+  "backlog_sources": []
+}

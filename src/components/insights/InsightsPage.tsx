@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
-import type { StatsCache } from '@/stores/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { StatsCache, IntelligenceTrendsResult } from '@/stores/types';
 import UsageStats from './UsageStats';
+import IntelligenceTrends from './IntelligenceTrends';
 
 const API_BASE = `http://${window.location.hostname}:4444`;
 
 export default function InsightsPage() {
   const [stats, setStats] = useState<StatsCache | null>(null);
+  const [intelligence, setIntelligence] = useState<IntelligenceTrendsResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/insights/stats`)
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(console.error)
+    Promise.all([
+      fetch(`${API_BASE}/api/insights/stats`).then((r) => r.json()).catch(() => null),
+      fetch(`${API_BASE}/api/intelligence`).then((r) => r.json()).catch(() => null),
+    ])
+      .then(([statsData, intelData]) => {
+        setStats(statsData);
+        setIntelligence(intelData);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -26,7 +33,18 @@ export default function InsightsPage() {
 
   return (
     <div className="p-6">
-      <UsageStats stats={stats} />
+      <Tabs defaultValue="intelligence" className="w-full">
+        <TabsList>
+          <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+          <TabsTrigger value="usage">Usage Stats</TabsTrigger>
+        </TabsList>
+        <TabsContent value="intelligence">
+          <IntelligenceTrends data={intelligence} />
+        </TabsContent>
+        <TabsContent value="usage">
+          <UsageStats stats={stats} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

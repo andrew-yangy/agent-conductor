@@ -1,0 +1,14 @@
+{
+  "id": "coderabbit-integration",
+  "title": "Directive: Add CodeRabbit free tier to GitHub repos",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "developer-productivity"
+  ],
+  "produced_features": [],
+  "report": "coderabbit-integration-2026-03-02",
+  "backlog_sources": []
+}

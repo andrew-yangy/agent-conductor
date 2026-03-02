@@ -100,7 +100,11 @@ export function useNotifications() {
           session.status === 'done' ? 'Done' :
           session.status === 'waiting-input' ? 'Needs input' : 'Needs approval';
 
-        const sessionLabel = session.initialPrompt ?? session.slug ?? session.id.slice(0, 12);
+        const sessionLabel = session.initialPrompt
+          ?? session.feature
+          ?? (session.project !== 'unknown' ? session.project : null)
+          ?? session.slug
+          ?? session.id.slice(0, 12);
         const icon = statusIcon(session.status);
 
         // In-app toast (always shown)

@@ -97,6 +97,101 @@ export function extractInitialPrompt(filepath: string): string | undefined {
   return undefined;
 }
 
+// --- Named agent detection ---
+
+/** Known named agents in the conductor system */
+const KNOWN_AGENTS: Record<string, { name: string; role: string }> = {
+  // C-suite
+  'alex': { name: 'Alex', role: 'Chief of Staff' },
+  'sarah': { name: 'Sarah', role: 'CTO' },
+  'morgan': { name: 'Morgan', role: 'COO' },
+  'marcus': { name: 'Marcus', role: 'CPO' },
+  'priya': { name: 'Priya', role: 'CMO' },
+  // Specialists
+  'riley': { name: 'Riley', role: 'Frontend Developer' },
+  'jordan': { name: 'Jordan', role: 'Backend Developer' },
+  'casey': { name: 'Casey', role: 'Data Engineer' },
+  'taylor': { name: 'Taylor', role: 'Content Builder' },
+  'sam': { name: 'Sam', role: 'QA Engineer' },
+};
+
+/**
+ * Extract a named agent identity from the initial prompt of a subagent.
+ * Detects patterns like "You are Alex Rivera, Chief of Staff" or "You are Sarah Chen, CTO"
+ * Returns { name, role } if found, undefined otherwise.
+ */
+export function extractAgentIdentity(promptText: string): { name: string; role: string } | undefined {
+  if (!promptText) return undefined;
+
+  // Check first 2000 chars for agent identity patterns
+  const head = promptText.slice(0, 2000);
+
+  // Pattern 1: "You are {FirstName} {LastName}, {Role}"
+  const youAreMatch = head.match(/You are (\w+)\s+\w+,\s*([^.\n]+)/);
+  if (youAreMatch) {
+    const firstName = youAreMatch[1].toLowerCase();
+    const known = KNOWN_AGENTS[firstName];
+    if (known) return known;
+    // Unknown named agent — use what we found
+    return { name: youAreMatch[1], role: youAreMatch[2].trim() };
+  }
+
+  // Pattern 2: "# {FirstName} {LastName} --- {Role}" (personality file header)
+  const headerMatch = head.match(/^#\s+(\w+)\s+\w+\s*(?:---|—)\s*(.+)$/m);
+  if (headerMatch) {
+    const firstName = headerMatch[1].toLowerCase();
+    const known = KNOWN_AGENTS[firstName];
+    if (known) return known;
+    return { name: headerMatch[1], role: headerMatch[2].trim() };
+  }
+
+  // Pattern 3: Check for known agent first names in the prompt
+  for (const [key, agent] of Object.entries(KNOWN_AGENTS)) {
+    // Look for "You are {Name}" or "as {Name}" in the prompt
+    const nameRegex = new RegExp(`\\b(?:You are|as)\\s+${key}\\b`, 'i');
+    if (nameRegex.test(head)) return agent;
+  }
+
+  return undefined;
+}
+
+/**
+ * Extract agent identity from a JSONL file's first user message.
+ * Reads the head of the file to find the initial prompt, then checks for agent identity patterns.
+ */
+export function extractAgentIdentityFromFile(filepath: string): { name: string; role: string } | undefined {
+  const content = headRead(filepath, HEAD_SIZE);
+  if (!content) return undefined;
+
+  const lines = content.split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      const entry = JSON.parse(line) as HeadEntry;
+      if (entry.type === 'user' || entry.message?.role === 'user') {
+        const msgContent = entry.message?.content;
+
+        if (typeof msgContent === 'string' && msgContent.length > 0) {
+          return extractAgentIdentity(msgContent);
+        }
+
+        if (Array.isArray(msgContent)) {
+          for (const block of msgContent) {
+            const text = block.content ?? block.text;
+            if (typeof text === 'string' && text.length > 0) {
+              const identity = extractAgentIdentity(text);
+              if (identity) return identity;
+            }
+          }
+        }
+      }
+    } catch {
+      // skip malformed
+    }
+  }
+  return undefined;
+}
+
 export function isSystemContent(text: string): boolean {
   const trimmed = text.trim();
   if (/^<system-reminder>[\s\S]*<\/system-reminder>$/.test(trimmed)) return true;

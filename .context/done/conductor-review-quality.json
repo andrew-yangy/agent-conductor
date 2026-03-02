@@ -1,0 +1,14 @@
+{
+  "id": "conductor-review-quality",
+  "title": "Directive: Restructure Review Quality in Conductor Pipeline",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": "conductor-review-quality-2026-03-02",
+  "backlog_sources": []
+}

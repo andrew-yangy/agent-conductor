@@ -1,0 +1,14 @@
+{
+  "id": "request-clarify-loops",
+  "title": "Directive: Request-Clarify Loops for Engineers",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": "request-clarify-loops-2026-03-02",
+  "backlog_sources": []
+}

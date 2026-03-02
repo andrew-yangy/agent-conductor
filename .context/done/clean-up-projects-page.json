@@ -1,0 +1,12 @@
+{
+  "id": "clean-up-projects-page",
+  "title": "Clean Up Projects Page — Fix Conductor Grouping and Counts",
+  "status": "pending",
+  "created": "2026-03-03",
+  "completed": null,
+  "weight": "lightweight",
+  "goal_ids": ["conductor-ux"],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

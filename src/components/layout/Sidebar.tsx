@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Settings, PanelLeftClose, PanelLeft, Lightbulb, ScrollText, FileText } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Monitor, Settings, PanelLeftClose, PanelLeft, Lightbulb, ScrollText, FileText, Archive, Search, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -9,7 +9,10 @@ import { useDashboardStore } from '@/stores/dashboard-store';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
+  { to: '/org', icon: Users, label: 'Team' },
+  { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/sessions', icon: Monitor, label: 'Sessions' },
+  { to: '/artifacts', icon: Archive, label: 'Artifacts' },
   { to: '/insights', icon: Lightbulb, label: 'Insights' },
   { to: '/history', icon: ScrollText, label: 'History' },
   { to: '/plans', icon: FileText, label: 'Plans' },
@@ -82,6 +85,29 @@ export default function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Search shortcut */}
+        <div className="px-2 pb-1">
+          <button
+            onClick={() => {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+            }}
+            className={cn(
+              'flex items-center gap-2 w-full rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors',
+              collapsed && 'justify-center px-2'
+            )}
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left">Search</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">&#8984;</span>K
+                </kbd>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Footer */}
         <div className="p-3">

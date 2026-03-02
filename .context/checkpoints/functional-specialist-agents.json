@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "directive_name": "functional-specialist-agents",
+  "directive_path": ".context/done/functional-specialist-agents.md",
+  "started_at": "2026-03-03T12:00:00Z",
+  "updated_at": "2026-03-03T18:00:00Z",
+  "current_step": "step-7",
+  "planning": {
+    "morgan_plan": {
+      "goal": "Make Specialist Agents Functional",
+      "goal_folder": "agent-conductor",
+      "challenges": {
+        "risks": [
+          "Specialist prompt templates could become stale as codebase evolves -- templates reference specific file paths and patterns",
+          "Morgan's casting logic could become complex if file-pattern matching is too granular",
+          "Session scanner identity detection might not match specialist names if prompt templates deviate from naming pattern"
+        ],
+        "over_engineering_flags": [],
+        "recommendation": "Proceed as-is"
+      },
+      "initiatives": []
+    },
+    "ceo_approval": "approved",
+    "worktree_path": null
+  },
+  "initiatives": [
+    {
+      "id": "session-scanner-specialists",
+      "status": "completed",
+      "phases": ["build", "review"],
+      "phases_completed": ["build", "review"],
+      "current_phase": null,
+      "artifact_paths": {},
+      "review_findings": []
+    },
+    {
+      "id": "specialist-prompt-templates",
+      "status": "completed",
+      "phases": ["build", "review"],
+      "phases_completed": ["build", "review"],
+      "current_phase": null,
+      "artifact_paths": {
+        "riley-frontend": ".claude/agents/riley-frontend.md",
+        "jordan-backend": ".claude/agents/jordan-backend.md",
+        "casey-data": ".claude/agents/casey-data.md",
+        "taylor-content": ".claude/agents/taylor-content.md",
+        "sam-qa": ".claude/agents/sam-qa.md"
+      },
+      "review_findings": []
+    },
+    {
+      "id": "skill-md-casting-updates",
+      "status": "completed",
+      "phases": ["build", "review"],
+      "phases_completed": ["build", "review"],
+      "current_phase": null,
+      "artifact_paths": {},
+      "review_findings": []
+    }
+  ],
+  "wrapup": {
+    "okrs_persisted": false,
+    "follow_ups_processed": true,
+    "digest_path": ".context/reports/functional-specialist-agents-2026-03-03.md",
+    "lessons_updated": false
+  }
+}

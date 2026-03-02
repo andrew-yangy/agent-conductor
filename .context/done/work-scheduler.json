@@ -1,0 +1,14 @@
+{
+  "id": "work-scheduler",
+  "title": "Directive: Autonomous Work Scheduler (Foreman)",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

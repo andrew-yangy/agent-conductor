@@ -1,0 +1,14 @@
+{
+  "id": "database-ops-batch",
+  "title": "Directive: Database Ops Batch",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "database-ops"
+  ],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

@@ -56,11 +56,12 @@ export default function UsageStats({ stats }: UsageStatsProps) {
   }));
 
   const modelEntries = Object.entries(stats.modelUsage);
+  const totalCostUSD = modelEntries.reduce((sum, [, usage]) => sum + (usage.costUSD ?? 0), 0);
 
   return (
     <div className="space-y-6 pt-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="text-2xl font-bold">{stats.totalMessages.toLocaleString()}</div>
@@ -71,6 +72,12 @@ export default function UsageStats({ stats }: UsageStatsProps) {
           <CardContent className="pt-4 pb-3 px-4">
             <div className="text-2xl font-bold">{stats.totalSessions}</div>
             <div className="text-xs text-muted-foreground">Total Sessions</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="text-2xl font-bold">${totalCostUSD.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground">Total Cost (USD)</div>
           </CardContent>
         </Card>
         <Card>
@@ -118,6 +125,7 @@ export default function UsageStats({ stats }: UsageStatsProps) {
                     <div className="text-sm font-medium">{modelDisplayName(model)}</div>
                     <div className="text-xs text-muted-foreground">
                       {formatTokens(totalTokens)} tokens · {formatTokens(usage.inputTokens)} in · {formatTokens(usage.outputTokens)} out
+                      {usage.costUSD > 0 && <span className="ml-1">· ${usage.costUSD.toFixed(2)}</span>}
                     </div>
                   </div>
                 </div>

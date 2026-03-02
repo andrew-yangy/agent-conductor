@@ -1,0 +1,12 @@
+{
+  "id": "functional-specialist-agents",
+  "title": "Make Specialist Agents Functional",
+  "status": "pending",
+  "created": "2026-03-02",
+  "completed": null,
+  "weight": "standard",
+  "goal_ids": ["agent-conductor"],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "conductor-scout-fixes",
+  "title": "Directive: Resolve Framework Comparison Scout Findings",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": "conductor-scout-fixes-2026-03-03",
+  "backlog_sources": []
+}

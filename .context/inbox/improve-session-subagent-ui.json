@@ -1,0 +1,14 @@
+{
+  "id": "improve-session-subagent-ui",
+  "title": "Improve Session Page: Sub-Agent Cards & Hierarchy",
+  "status": "pending",
+  "created": "2026-03-02",
+  "completed": null,
+  "weight": "standard",
+  "goal_ids": [
+    "conductor-ux"
+  ],
+  "produced_features": [],
+  "report": "improve-session-subagent-ui-2026-03-02",
+  "backlog_sources": []
+}

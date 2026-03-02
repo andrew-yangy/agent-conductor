@@ -1,0 +1,11 @@
+{
+  "id": "conductor-ux",
+  "title": "Conductor UX",
+  "state": "active",
+  "category": "framework",
+  "created": "2026-03-02",
+  "description": "Improve the conductor's user experience -- richer notifications, fewer CEO context switches, faster directive feedback loops.",
+  "okrs_file": null,
+  "features": [],
+  "last_activity": "2026-03-02"
+}

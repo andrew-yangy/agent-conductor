@@ -39,7 +39,15 @@ export default function ActiveSessions({ sessions, sessionActivities }: ActiveSe
         <div className="space-y-1.5">
           {activeSessions.map((session) => {
             const activity = sessionActivities[session.id];
-            const title = session.initialPrompt ?? session.slug ?? session.id.slice(0, 12);
+            // Show meaningful title: prompt > feature > project, not raw hash
+            const title = session.initialPrompt
+              ?? session.feature
+              ?? (session.project !== 'unknown' ? session.project : null)
+              ?? session.latestPrompt
+              ?? session.id.slice(0, 12);
+
+            // Show active subagent names for working parent sessions
+            const activeNames = session.activeSubagentNames;
 
             return (
               <div key={session.id} className="flex items-center gap-2 py-1">
@@ -53,6 +61,11 @@ export default function ActiveSessions({ sessions, sessionActivities }: ActiveSe
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium truncate">{title}</span>
+                    {activeNames && activeNames.length > 0 && (
+                      <span className="text-[10px] text-status-green shrink-0">
+                        {activeNames.join(', ')} working
+                      </span>
+                    )}
                     <span className="text-[10px] text-muted-foreground shrink-0">
                       {timeAgo(session.lastActivity)}
                     </span>

@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { GitBranch, Clock, Users, ChevronRight, HardDrive, Terminal, MessageSquare } from 'lucide-react';
+import { GitBranch, Clock, HardDrive, Terminal, MessageSquare, CornerDownRight, User } from 'lucide-react';
 import { cn, timeAgo, sessionStatusLabel, terminalLabel } from '@/lib/utils';
 import ActivityLine from '@/components/shared/ActivityLine';
 import QuickActions from '@/components/shared/QuickActions';
@@ -14,9 +12,7 @@ interface KanbanCardProps {
   teamInfo?: { teamName: string; memberName: string };
   paneId?: string;
   tasks: TeamTask[];
-  subagents: Session[];
-  subagentActivities: Record<string, SessionActivity>;
-  sessionTeamMap: Map<string, { teamName: string; memberName: string }>;
+  parentInfo?: { name: string; agentName?: string };
 }
 
 function statusDotColor(status: Session['status']): string {
@@ -50,18 +46,28 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function subName(
-  sub: Session,
-  sessionTeamMap: Map<string, { teamName: string; memberName: string }>
-): string {
-  const teamInfo = sessionTeamMap.get(sub.id);
-  if (teamInfo) return teamInfo.memberName;
-  if (sub.initialPrompt) {
-    return sub.initialPrompt.length > 40
-      ? sub.initialPrompt.slice(0, 40) + '...'
-      : sub.initialPrompt;
+/** Color for named agent badges */
+function agentBadgeColor(name?: string): string {
+  switch (name?.toLowerCase()) {
+    case 'alex': return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+    case 'sarah': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    case 'morgan': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+    case 'marcus': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+    case 'priya': return 'bg-pink-500/15 text-pink-400 border-pink-500/30';
+    default: return 'bg-secondary text-muted-foreground border-border';
   }
-  return sub.agentId?.slice(0, 8) ?? sub.id.slice(0, 8);
+}
+
+/** Left border accent color for named agents */
+function agentBorderColor(name?: string): string {
+  switch (name?.toLowerCase()) {
+    case 'alex': return 'border-l-blue-500/60';
+    case 'sarah': return 'border-l-emerald-500/60';
+    case 'morgan': return 'border-l-purple-500/60';
+    case 'marcus': return 'border-l-amber-500/60';
+    case 'priya': return 'border-l-pink-500/60';
+    default: return '';
+  }
 }
 
 async function handleFocus(paneId: string) {
@@ -99,35 +105,51 @@ export default function KanbanCard({
   teamInfo,
   paneId,
   tasks,
-  subagents,
-  subagentActivities,
-  sessionTeamMap,
+  parentInfo,
 }: KanbanCardProps) {
-  const [subExpanded, setSubExpanded] = useState(() =>
-    subagents.some((s) => s.status === 'working')
-  );
   const isActive = session.status === 'working';
   const model = shortModel(session.model ?? sessionActivity?.model);
   const cwd = shortCwd(session.cwd);
   const needsAction = session.status === 'waiting-input' || session.status === 'waiting-approval' || session.status === 'error';
+  const isSubagent = session.isSubagent && parentInfo;
+  const isNamedAgent = !!session.agentName;
 
-  const title = teamInfo
-    ? `${teamInfo.teamName} / ${teamInfo.memberName}`
-    : session.initialPrompt ?? session.latestPrompt ?? `${session.project} / ${session.id.slice(0, 8)}`;
+  // Title: named agent name takes priority, then team info, then prompt
+  const title = session.agentName
+    ? session.agentName
+    : teamInfo
+      ? `${teamInfo.teamName} / ${teamInfo.memberName}`
+      : session.initialPrompt ?? session.latestPrompt ?? `${session.project} / ${session.id.slice(0, 8)}`;
 
   const latestPrompt = session.latestPrompt;
-  const hasSecondaryPrompt = latestPrompt && latestPrompt !== title;
+  const hasSecondaryPrompt = latestPrompt && latestPrompt !== title && latestPrompt !== session.initialPrompt;
+
+  // For named agents, show initial prompt as context below the name
+  const showPromptContext = isNamedAgent && session.initialPrompt;
 
   const completedTasks = tasks.filter((t) => t.status === 'completed').length;
   const totalTasks = tasks.length;
 
-  const activeSubCount = subagents.filter(
-    (s) => s.status === 'working'
-  ).length;
-
   const cardContent = (
     <CardContent className="p-3">
-      {/* Row 1: Status dot + title (allow 2 lines) */}
+      {/* Spawned-by line for subagents */}
+      {isSubagent && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1.5">
+          <CornerDownRight className="h-3 w-3 shrink-0" />
+          <span>
+            spawned by{' '}
+            {parentInfo.agentName ? (
+              <span className={cn('font-semibold', parentInfo.agentName && 'text-foreground/70')}>
+                {parentInfo.name}
+              </span>
+            ) : (
+              <span className="truncate">{parentInfo.name}</span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* Row 1: Status dot + title */}
       <div className="flex items-start gap-2">
         <div
           className={cn(
@@ -138,7 +160,23 @@ export default function KanbanCard({
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
-            <span className="text-sm font-medium line-clamp-2 flex-1">{title}</span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {isNamedAgent && <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+              <span className={cn(
+                'text-sm font-medium line-clamp-2 flex-1',
+                isNamedAgent && 'font-semibold'
+              )}>
+                {title}
+              </span>
+              {session.agentRole && (
+                <Badge
+                  variant="outline"
+                  className={cn('text-[10px] px-1.5 py-0 shrink-0', agentBadgeColor(session.agentName))}
+                >
+                  {session.agentRole}
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-1 shrink-0 mt-0.5">
               {session.terminalApp && (
                 <div className="flex items-center gap-0.5">
@@ -181,7 +219,15 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* Row 4: Latest prompt (if different from title) */}
+      {/* Row 4: Initial prompt context for named agents */}
+      {showPromptContext && (
+        <div className="mt-1.5 ml-[18px] flex items-start gap-1.5 text-xs text-muted-foreground">
+          <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+          <span className="italic line-clamp-2">{session.initialPrompt}</span>
+        </div>
+      )}
+
+      {/* Row 5: Latest prompt (if different from title and initial) */}
       {hasSecondaryPrompt && (
         <div className="mt-1.5 ml-[18px] flex items-start gap-1.5 text-xs text-muted-foreground">
           <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
@@ -189,7 +235,7 @@ export default function KanbanCard({
         </div>
       )}
 
-      {/* Row 5: Meta — slug, project, branch, cwd, time, size */}
+      {/* Row 6: Meta -- slug, project, branch, cwd, time, size */}
       <div className="flex items-center gap-x-2 gap-y-1 mt-2 ml-[18px] text-xs text-muted-foreground flex-wrap overflow-hidden">
         {session.slug && (
           <span className="font-mono text-[10px] truncate max-w-[140px]">{session.slug}</span>
@@ -214,88 +260,10 @@ export default function KanbanCard({
         )}
       </div>
 
-      {/* Row 6: Task progress */}
+      {/* Row 7: Task progress */}
       {totalTasks > 0 && (
         <div className="ml-[18px]">
           <TaskProgressBar completed={completedTasks} total={totalTasks} />
-        </div>
-      )}
-
-      {/* Row 7: Subagents (collapsible) */}
-      {subagents.length > 0 && (
-        <div className="mt-2">
-          <Collapsible open={subExpanded} onOpenChange={setSubExpanded}>
-            <CollapsibleTrigger className="flex items-center gap-2 px-2 py-1.5 text-xs w-full hover:bg-muted/30 rounded transition-colors">
-              <ChevronRight
-                className={cn(
-                  'h-3 w-3 shrink-0 transition-transform',
-                  subExpanded && 'rotate-90'
-                )}
-              />
-              <Users className="h-3 w-3 shrink-0" />
-              <span>{subagents.length} agents</span>
-              {activeSubCount > 0 && (
-                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                  {activeSubCount} active
-                </Badge>
-              )}
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pl-4 pr-2 pb-1 space-y-1.5 overflow-hidden">
-              {subagents.map((sub) => {
-                const subActivity = subagentActivities[sub.id];
-                const subIsActive = sub.status === 'working';
-                const subModel = shortModel(sub.model ?? subActivity?.model);
-                return (
-                  <div key={sub.id} className="rounded bg-secondary/30 px-2 py-1.5 overflow-hidden">
-                    {/* Row 1: status dot + name + badges */}
-                    <div className="flex items-center gap-1.5 text-xs min-w-0">
-                      <div
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full shrink-0',
-                          statusDotColor(sub.status),
-                          subIsActive && 'animate-pulse'
-                        )}
-                      />
-                      <span className="font-medium truncate min-w-0 flex-1">
-                        {subName(sub, sessionTeamMap)}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-[9px] px-1 py-0 shrink-0',
-                          sub.status === 'error' && 'text-status-red border-status-red/30',
-                          (sub.status === 'waiting-input' || sub.status === 'waiting-approval') && 'text-status-yellow border-status-yellow/30',
-                          sub.status === 'working' && 'text-status-green border-status-green/30',
-                          sub.status === 'done' && 'text-status-done border-status-done/30'
-                        )}
-                      >
-                        {sessionStatusLabel(sub.status)}
-                      </Badge>
-                      {subModel && (
-                        <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
-                          {subModel}
-                        </Badge>
-                      )}
-                      <span className="text-muted-foreground shrink-0">
-                        {timeAgo(sub.lastActivity)}
-                      </span>
-                    </div>
-
-                    {/* Row 2: Activity line or initial prompt */}
-                    {subActivity?.active ? (
-                      <div className="mt-1 ml-[14px] overflow-hidden">
-                        <ActivityLine activity={subActivity} />
-                      </div>
-                    ) : sub.initialPrompt ? (
-                      <div className="mt-0.5 ml-[14px] text-[11px] text-muted-foreground truncate min-w-0">
-                        {sub.initialPrompt}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </CollapsibleContent>
-          </Collapsible>
         </div>
       )}
 
@@ -308,10 +276,16 @@ export default function KanbanCard({
     </CardContent>
   );
 
+  const cardClassName = cn(
+    isNamedAgent && `border-l-2 ${agentBorderColor(session.agentName)}`,
+    isSubagent && !isNamedAgent && 'border-l-2 border-l-border/50 ml-3',
+    isSubagent && isNamedAgent && 'ml-3',
+  );
+
   if (paneId) {
     return (
       <Card
-        className="cursor-pointer hover:bg-muted/50 transition-colors"
+        className={cn('cursor-pointer hover:bg-muted/50 transition-colors', cardClassName)}
         onClick={() => handleFocus(paneId)}
       >
         {cardContent}
@@ -319,5 +293,5 @@ export default function KanbanCard({
     );
   }
 
-  return <Card>{cardContent}</Card>;
+  return <Card className={cardClassName}>{cardContent}</Card>;
 }

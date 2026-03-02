@@ -23,12 +23,15 @@ import { getRecentEvents } from '../db.js';
 import type {
   ConductorConfig,
   DashboardState,
+  DirectiveState,
+  GoalInventory,
   ProjectGroup,
   Session,
   SessionActivity,
   HookEvent,
   WsMessageType,
 } from '../types.js';
+import type { FullWorkState, WorkItemFilter, WorkItem, GoalRecord, FeatureRecord, BacklogRecord } from './work-item-types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -66,6 +69,78 @@ function deriveSessionStatus(
   return 'idle';
 }
 
+/**
+ * Bidirectional status propagation between parent and subagent sessions.
+ * Runs AFTER normal status derivation — only upgrades statuses, never downgrades.
+ *
+ * 1. Parent → Subagent: If parent is "working", subagents with stale status
+ *    (idle/paused) get upgraded to "working" (they're active inside the parent).
+ * 2. Subagent → Parent: If any subagent has "error" or "waiting-input"/"waiting-approval",
+ *    set subagentAttention on the parent. Also collect active subagent names.
+ * 3. Reverse propagation: If parent is "idle" but has subagents with recent activity
+ *    (< 5 min), upgrade the parent to "working".
+ */
+function propagateSubagentStatuses(sessions: Session[]): void {
+  // Build parent → children lookup
+  const childrenByParent = new Map<string, Session[]>();
+  const sessionById = new Map<string, Session>();
+
+  for (const s of sessions) {
+    sessionById.set(s.id, s);
+    if (s.isSubagent && s.parentSessionId) {
+      const children = childrenByParent.get(s.parentSessionId);
+      if (children) {
+        children.push(s);
+      } else {
+        childrenByParent.set(s.parentSessionId, [s]);
+      }
+    }
+  }
+
+  for (const session of sessions) {
+    if (session.isSubagent) continue; // Only process parent sessions
+    const children = childrenByParent.get(session.id);
+    if (!children || children.length === 0) continue;
+
+    // --- Reverse propagation: subagent activity can upgrade parent ---
+    if (session.status === 'idle' || session.status === 'paused') {
+      const hasRecentSubagent = children.some(child => {
+        const childAge = Date.now() - new Date(child.lastActivity).getTime();
+        return childAge < FIVE_MINUTES_MS;
+      });
+      if (hasRecentSubagent) {
+        session.status = 'working';
+      }
+    }
+
+    // --- Forward propagation: parent working → subagents working ---
+    const activeSubagentNames: string[] = [];
+    let hasAttention = false;
+
+    for (const child of children) {
+      // If parent is working, upgrade stale subagents
+      if (session.status === 'working') {
+        if (child.status === 'idle' || child.status === 'paused') {
+          child.status = 'working';
+        }
+      }
+
+      // Track which subagents are actively working
+      if (child.status === 'working' && child.agentName) {
+        activeSubagentNames.push(child.agentName);
+      }
+
+      // Surface subagent attention states on parent
+      if (child.status === 'error' || child.status === 'waiting-input' || child.status === 'waiting-approval') {
+        hasAttention = true;
+      }
+    }
+
+    session.subagentAttention = hasAttention || undefined;
+    session.activeSubagentNames = activeSubagentNames.length > 0 ? activeSubagentNames : undefined;
+  }
+}
+
 export class Aggregator extends EventEmitter {
   private state: DashboardState;
   private config: ConductorConfig;
@@ -73,6 +148,7 @@ export class Aggregator extends EventEmitter {
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
   private paneMapping: ClaudePaneMapping = { byTasksDir: new Map(), byPid: new Map(), bySessionId: new Map(), byPaneTitle: new Map(), panePrompts: new Map(), byItermSession: new Map(), orphanItermSessions: [] };
   private discoveredFiles = new Map<string, DiscoveredFile>();
+  private workState: FullWorkState = { goals: null, features: null, backlogs: null, conductor: null, index: null };
 
   constructor(config: ConductorConfig) {
     super();
@@ -85,12 +161,21 @@ export class Aggregator extends EventEmitter {
       tasksBySession: {},
       events: [],
       sessionActivities: {},
+      directiveState: null,
+      goalInventory: null,
       lastUpdated: new Date().toISOString(),
     };
   }
 
   getState(): DashboardState {
     return this.state;
+  }
+
+  getActiveSessions() {
+    // Any session that's not idle/done — includes working, paused, waiting-input, waiting-approval, error
+    // "paused" means < 1hr old, user may still be thinking/reading
+    // Only "idle" (> 1hr) is safe to assume abandoned
+    return this.state.sessions.filter(s => s.status !== 'idle' && s.status !== 'done');
   }
 
   initialize(): void {
@@ -126,6 +211,8 @@ export class Aggregator extends EventEmitter {
       tasksBySession,
       events,
       sessionActivities,
+      directiveState: null,
+      goalInventory: null,
       lastUpdated: new Date().toISOString(),
     };
 
@@ -166,6 +253,65 @@ export class Aggregator extends EventEmitter {
     this.refreshTeams();
     this.refreshTasks();
     this.refreshSessions();
+  }
+
+  updateDirectiveState(directiveState: DirectiveState | null): void {
+    this.state.directiveState = directiveState;
+    this.state.lastUpdated = new Date().toISOString();
+    this.emitChange('directive_updated');
+  }
+
+  updateGoalInventory(goalInventory: GoalInventory | null): void {
+    this.state.goalInventory = goalInventory;
+    this.state.lastUpdated = new Date().toISOString();
+    this.emitChange('goals_updated');
+  }
+
+  updateWorkState(workState: FullWorkState): void {
+    this.workState = workState;
+    this.state.lastUpdated = new Date().toISOString();
+    this.emitChange('state_updated');
+  }
+
+  getWorkState(): FullWorkState {
+    return this.workState;
+  }
+
+  getWorkItems(filters?: WorkItemFilter): WorkItem[] {
+    const items: WorkItem[] = [];
+
+    // Collect all items
+    if (this.workState.goals) {
+      items.push(...this.workState.goals.goals as unknown as WorkItem[]);
+    }
+    if (this.workState.features) {
+      items.push(...this.workState.features.features as unknown as WorkItem[]);
+    }
+    if (this.workState.backlogs) {
+      items.push(...this.workState.backlogs.items as unknown as WorkItem[]);
+    }
+    if (this.workState.conductor) {
+      // Guard each array with ?? [] — conductor.json is read via plain JSON.parse
+      // cast, so individual fields may be missing/undefined if the file is partial.
+      items.push(...(this.workState.conductor.directives ?? []) as unknown as WorkItem[]);
+      items.push(...(this.workState.conductor.reports ?? []) as unknown as WorkItem[]);
+      items.push(...(this.workState.conductor.discussions ?? []) as unknown as WorkItem[]);
+      items.push(...(this.workState.conductor.research ?? []) as unknown as WorkItem[]);
+    }
+
+    if (!filters) return items;
+
+    return items.filter(item => {
+      if (filters.type && item.type !== filters.type) return false;
+      if (filters.status && item.status !== filters.status) return false;
+      if (filters.goalId && item.goalId !== filters.goalId) return false;
+      if (filters.q) {
+        const q = filters.q.toLowerCase();
+        const searchable = `${item.title} ${item.id} ${item.goalId ?? ''}`.toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
+      return true;
+    });
   }
 
   refreshSessions(): void {
@@ -257,6 +403,9 @@ export class Aggregator extends EventEmitter {
       }
     }
 
+    // Re-run propagation after individual status re-derivation
+    propagateSubagentStatuses(this.state.sessions);
+
     if (statusChanged) {
       this.state.lastUpdated = new Date().toISOString();
       this.emitChange('sessions_updated');
@@ -291,9 +440,14 @@ export class Aggregator extends EventEmitter {
       if (fileState.slug) existing.slug = fileState.slug;
       if (fileState.tasksId) existing.tasksId = fileState.tasksId;
       if (fileState.latestPrompt) existing.latestPrompt = fileState.latestPrompt;
+      if (fileState.agentName) existing.agentName = fileState.agentName;
+      if (fileState.agentRole) existing.agentRole = fileState.agentRole;
       existing.lastActivity = new Date(fileState.mtimeMs).toISOString();
       existing.fileSize = fileState.fileSize;
     }
+
+    // Re-run propagation since this session's status may affect parent/children
+    propagateSubagentStatuses(this.state.sessions);
 
     this.state.lastUpdated = new Date().toISOString();
     this.emitChange('sessions_updated');
@@ -894,6 +1048,8 @@ export class Aggregator extends EventEmitter {
         isSubagent: discovered.isSubagent,
         parentSessionId: discovered.parentSessionId,
         agentId: discovered.agentId,
+        agentName: state?.agentName,
+        agentRole: state?.agentRole,
         subagentIds: [],
         fileSize,
       });
@@ -917,6 +1073,9 @@ export class Aggregator extends EventEmitter {
         session.subagentIds = parentSubagentMap.get(session.id) ?? [];
       }
     }
+
+    // Propagate statuses between parent and subagent sessions
+    propagateSubagentStatuses(sessions);
 
     const projectMap = new Map<string, ProjectGroup>();
     for (const session of sessions) {

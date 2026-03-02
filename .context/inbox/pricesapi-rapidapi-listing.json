@@ -1,0 +1,14 @@
+{
+  "id": "pricesapi-rapidapi-listing",
+  "title": "Directive: PricesAPI RapidAPI listing and AU-native positioning",
+  "status": "pending",
+  "created": "2026-03-02",
+  "completed": null,
+  "weight": "standard",
+  "goal_ids": [
+    "pricesapi-launch"
+  ],
+  "produced_features": [],
+  "report": "pricesapi-rapidapi-listing-2026-03-02",
+  "backlog_sources": []
+}

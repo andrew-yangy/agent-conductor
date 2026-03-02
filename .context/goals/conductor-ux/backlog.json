@@ -1,0 +1,55 @@
+{
+  "goal_id": "conductor-ux",
+  "last_reviewed": "2026-03-02",
+  "staleness_threshold_days": 30,
+  "items": [
+    {
+      "id": "rich-directive-notifications",
+      "title": "Rich directive notifications with context",
+      "status": "pending",
+      "priority": "P1",
+      "context": "macOS and browser notifications contain zero directive context — just session IDs. CEO must context-switch to terminal. Connect DirectiveWatcher to Notifier with directive name, initiative counts, and Needs CEO Eyes count.",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "eliminate-heavyweight-double-spawn",
+      "title": "Eliminate heavyweight directive double-spawn",
+      "status": "pending",
+      "priority": "P1",
+      "context": "Heavyweight directives require two background agent spawns — planning then execution. Each spawn takes 15-30s. Option A: Alex pauses at approval gate by watching a file write. Option B: Alex returns summary, CEO approves, sends message to still-running agent.",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "directive-aware-notification-context",
+      "title": "Directive-aware notification context",
+      "status": "pending",
+      "priority": "P1",
+      "context": "Notifier only knows session ID and project — no directive context. Cannot distinguish directive completion from random session. Emit directive_completed event from DirectiveWatcher, subscribe in Notifier.",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "ux-verification-single-instruction",
+      "title": "UX verification: one instruction, not a checklist",
+      "status": "pending",
+      "priority": "P2",
+      "context": "SKILL.md prescribes a 5-item QA checklist for UX verification. Ideal is one focused test instruction per initiative — the single most important thing the CEO should verify, with exact URL and expected result.",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    }
+  ]
+}

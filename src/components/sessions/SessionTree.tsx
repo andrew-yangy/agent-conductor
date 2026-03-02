@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, FolderOpen } from 'lucide-react';
+import { ChevronRight, FolderOpen, User, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,18 @@ function statusPriority(status: Session['status']): number {
     case 'paused': return 4;
     case 'idle': return 5;
     default: return 6;
+  }
+}
+
+/** Color for named agent badges */
+function agentBadgeColor(name?: string): string {
+  switch (name?.toLowerCase()) {
+    case 'alex': return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+    case 'sarah': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    case 'morgan': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+    case 'marcus': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+    case 'priya': return 'bg-pink-500/15 text-pink-400 border-pink-500/30';
+    default: return 'bg-secondary text-muted-foreground border-border';
   }
 }
 
@@ -64,7 +76,7 @@ export default function SessionTree({
     return a.name.localeCompare(b.name);
   });
 
-  // Build subagent lookup: parentSessionId → subagent sessions
+  // Build subagent lookup: parentSessionId -> subagent sessions
   const subagentMap = new Map<string, Session[]>();
   for (const session of allSessions) {
     if (session.isSubagent && session.parentSessionId) {
@@ -117,9 +129,14 @@ export default function SessionTree({
               <div className="ml-6 mt-1 space-y-2">
                 {sortedSessions.map((session) => {
                   const subagents = subagentMap.get(session.id) ?? [];
-                  const sortedSubagents = [...subagents].sort((a, b) =>
-                    statusPriority(a.status) - statusPriority(b.status)
-                  );
+                  const sortedSubagents = [...subagents].sort((a, b) => {
+                    // Named agents first
+                    const aIsNamed = !!a.agentName;
+                    const bIsNamed = !!b.agentName;
+                    if (aIsNamed !== bIsNamed) return aIsNamed ? -1 : 1;
+                    // Then by status priority
+                    return statusPriority(a.status) - statusPriority(b.status);
+                  });
 
                   return (
                     <div key={session.id}>
@@ -130,15 +147,46 @@ export default function SessionTree({
                         sessionActivity={sessionActivities[session.id]}
                       />
                       {sortedSubagents.length > 0 && (
-                        <div className="ml-6 mt-1 border-l border-border pl-2 space-y-0.5">
-                          {sortedSubagents.map((sub) => (
-                            <SessionCard
-                              key={sub.id}
-                              session={sub}
-                              sessionActivity={sessionActivities[sub.id]}
-                              compact
-                            />
-                          ))}
+                        <div className="ml-6 mt-1 border-l-2 border-border/50 pl-3 space-y-1">
+                          {sortedSubagents.map((sub) => {
+                            const isNamed = !!sub.agentName;
+                            return (
+                              <div key={sub.id} className="relative">
+                                {/* Horizontal connector line */}
+                                <div className="absolute -left-3 top-3 w-2.5 h-px bg-border/50" />
+                                {isNamed ? (
+                                  <div className="rounded border border-border/70 bg-secondary/30 p-2">
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                      <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                      <span className="font-semibold">{sub.agentName}</span>
+                                      {sub.agentRole && (
+                                        <Badge
+                                          variant="outline"
+                                          className={cn('text-[9px] px-1 py-0', agentBadgeColor(sub.agentName))}
+                                        >
+                                          {sub.agentRole}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <SessionCard
+                                      session={sub}
+                                      sessionActivity={sessionActivities[sub.id]}
+                                      compact
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Bot className="h-3 w-3 shrink-0" />
+                                    <SessionCard
+                                      session={sub}
+                                      sessionActivity={sessionActivities[sub.id]}
+                                      compact
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

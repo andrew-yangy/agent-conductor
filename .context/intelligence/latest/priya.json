@@ -1,0 +1,16 @@
+{
+  "agent": "priya",
+  "domain": "growth",
+  "scout_date": "2026-03-02",
+  "intelligence": [
+    {"id": "geo-citation-playbook", "type": "framework_update", "urgency": "act_now", "title": "GEO is now a distinct discipline from SEO", "detail": "AI traffic growing 165x faster than organic. 44.2% of citations from first 30% of content. Articles 2900+ words get 5.1 citations. FCP <0.4s gets 6.7 citations. 80% of LLM citations don't rank in Google top 100.", "products_affected": ["buywisely", "sellwisely", "pricesapi"]},
+    {"id": "third-party-citations-critical", "type": "market_shift", "urgency": "this_week", "title": "Brands 6.5x more likely cited via third-party sources", "detail": "G2, Capterra, Trustpilot profiles give 3x higher citation chance. We have zero profiles.", "products_affected": ["buywisely", "sellwisely", "pricesapi"]},
+    {"id": "competitor-price-monitoring-landscape", "type": "competitor_move", "urgency": "this_week", "title": "Price monitoring SaaS gap in AU-focused affordable tier", "products_affected": ["sellwisely"]},
+    {"id": "pricing-api-competitor-gap", "type": "opportunity", "urgency": "this_week", "title": "PriceAPI.com closest competitor but no AU depth", "products_affected": ["pricesapi"]},
+    {"id": "saas-content-marketing-shift", "type": "market_shift", "urgency": "this_month", "title": "Interactive tools and comparison pages outperform blog posts", "products_affected": ["sellwisely", "pricesapi", "buywisely"]},
+    {"id": "distribution-beyond-product-hunt", "type": "advisory", "urgency": "this_month", "title": "Product Hunt B2B weak — multi-channel launch needed", "products_affected": ["sellwisely", "pricesapi"]},
+    {"id": "pricehipster-stagnant", "type": "competitor_move", "urgency": "fyi", "title": "PriceHipster appears stagnant", "products_affected": ["buywisely"]},
+    {"id": "usage-based-pricing-standard", "type": "framework_update", "urgency": "this_month", "title": "Usage-based pricing now industry standard for dev tools/APIs", "products_affected": ["pricesapi", "sellwisely"]}
+  ],
+  "summary": "GEO is separate from SEO — AI traffic growing 165x faster. Zero third-party profiles is biggest gap. AU ecommerce $43.6B growing 21.87% CAGR."
+}

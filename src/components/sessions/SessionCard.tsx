@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, GitBranch, HardDrive, ChevronDown, ChevronRight, Clock, MessageSquare, Users, Hash } from 'lucide-react';
+import { Terminal, GitBranch, HardDrive, ChevronDown, ChevronRight, Clock, MessageSquare, Users, Hash, User, Bot } from 'lucide-react';
 import { cn, timeAgo, sessionStatusLabel, terminalLabel } from '@/lib/utils';
 import type { Session, SessionActivity } from '@/stores/types';
 import QuickActions from '@/components/shared/QuickActions';
@@ -45,6 +45,18 @@ function shortCwd(cwd?: string): string | null {
   return parts.slice(-2).join('/');
 }
 
+/** Color for named agent badges */
+function agentBadgeColor(name?: string): string {
+  switch (name?.toLowerCase()) {
+    case 'alex': return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+    case 'sarah': return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    case 'morgan': return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+    case 'marcus': return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+    case 'priya': return 'bg-pink-500/15 text-pink-400 border-pink-500/30';
+    default: return 'bg-secondary text-muted-foreground border-border';
+  }
+}
+
 async function handleFocus(paneId: string) {
   try {
     await fetch('http://localhost:4444/api/actions/focus-session', {
@@ -62,10 +74,14 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
   const isActive = session.status === 'working';
   const model = shortModel(session.model ?? sessionActivity?.model);
   const cwd = shortCwd(session.cwd);
+  const isNamed = !!session.agentName;
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 py-1 px-2 text-xs text-muted-foreground min-w-0">
+      <div className={cn(
+        'flex items-center gap-2 py-1.5 px-2 text-xs text-muted-foreground min-w-0 rounded transition-colors hover:bg-muted/30',
+        isNamed && 'bg-secondary/20',
+      )}>
         <div
           className={cn(
             'h-1.5 w-1.5 rounded-full shrink-0',
@@ -73,9 +89,39 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             isActive && 'animate-pulse'
           )}
         />
-        <span className="truncate min-w-0 flex-1">
-          {session.initialPrompt ? session.initialPrompt.slice(0, 40) : (session.agentId ? session.agentId.slice(0, 8) : session.id.slice(0, 8))}
-        </span>
+        {isNamed ? (
+          <>
+            <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="font-semibold shrink-0">{session.agentName}</span>
+            {session.agentRole && (
+              <Badge
+                variant="outline"
+                className={cn('text-[9px] px-1 py-0 shrink-0', agentBadgeColor(session.agentName))}
+              >
+                {session.agentRole}
+              </Badge>
+            )}
+          </>
+        ) : (
+          <>
+            <Bot className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="truncate min-w-0 flex-1">
+              {session.initialPrompt ? session.initialPrompt.slice(0, 40) : (session.feature ?? (session.project !== 'unknown' ? session.project : null) ?? session.slug ?? session.id.slice(0, 8))}
+            </span>
+          </>
+        )}
+        <Badge
+          variant="outline"
+          className={cn(
+            'text-[9px] px-1 py-0 shrink-0',
+            session.status === 'error' && 'text-status-red border-status-red/30',
+            (session.status === 'waiting-input' || session.status === 'waiting-approval') && 'text-status-yellow border-status-yellow/30',
+            session.status === 'working' && 'text-status-green border-status-green/30',
+            session.status === 'done' && 'text-status-done border-status-done/30'
+          )}
+        >
+          {sessionStatusLabel(session.status)}
+        </Badge>
         {model && (
           <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
             {model}
@@ -95,7 +141,7 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
   const initialPrompt = session.initialPrompt;
   const title = teamInfo
     ? `${teamInfo.teamName} / ${teamInfo.memberName}`
-    : initialPrompt ?? latestPrompt ?? `${session.project} / ${session.id.slice(0, 8)}`;
+    : initialPrompt ?? latestPrompt ?? session.feature ?? (session.project !== 'unknown' ? session.project : session.slug ?? session.id.slice(0, 8));
   const hasSecondaryPrompt = latestPrompt && latestPrompt !== title;
 
   const cardContent = (
@@ -214,6 +260,26 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
             </span>
             <span className="font-mono text-foreground break-all">{session.id}</span>
 
+            {session.agentName && (
+              <>
+                <span className="flex items-center gap-1">
+                  <User className="h-3 w-3" />
+                  Agent
+                </span>
+                <span className="text-foreground flex items-center gap-1.5">
+                  <span className="font-semibold">{session.agentName}</span>
+                  {session.agentRole && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-[9px] px-1 py-0', agentBadgeColor(session.agentName))}
+                    >
+                      {session.agentRole}
+                    </Badge>
+                  )}
+                </span>
+              </>
+            )}
+
             {session.model && (
               <>
                 <span>Model</span>
@@ -259,6 +325,13 @@ export default function SessionCard({ session, teamInfo, paneId, sessionActivity
               <>
                 <span>Subagents</span>
                 <span className="text-foreground break-all">{session.subagentIds.length} ({session.subagentIds.map(id => id.slice(0, 8)).join(', ')})</span>
+              </>
+            )}
+
+            {session.parentSessionId && (
+              <>
+                <span>Parent</span>
+                <span className="font-mono text-foreground break-all">{session.parentSessionId.slice(0, 12)}...</span>
               </>
             )}
 

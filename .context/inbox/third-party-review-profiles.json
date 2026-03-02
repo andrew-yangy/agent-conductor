@@ -1,0 +1,15 @@
+{
+  "id": "third-party-review-profiles",
+  "title": "Directive: Create Third-Party Review Platform Profiles",
+  "status": "pending",
+  "created": "2026-03-02",
+  "completed": null,
+  "weight": "standard",
+  "goal_ids": [
+    "growth-marketing",
+    "sellwisely-revenue"
+  ],
+  "produced_features": [],
+  "report": "third-party-review-profiles-2026-03-02",
+  "backlog_sources": []
+}

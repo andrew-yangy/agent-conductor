@@ -1,0 +1,14 @@
+{
+  "id": "conductor-brainstorm-goals",
+  "title": "Conductor: Brainstorm Integration + Goal Structure (Option B)",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": "conductor-brainstorm-goals-2026-03-03",
+  "backlog_sources": []
+}

@@ -42,70 +42,32 @@ export default function KanbanBoard({
   sessionPaneMap,
   tasksBySession,
 }: KanbanBoardProps) {
-  // Build subagent lookup: parentSessionId → subagent sessions
-  const subagentMap = useMemo(() => {
-    const map = new Map<string, Session[]>();
-    for (const session of sessions) {
-      if (session.isSubagent && session.parentSessionId) {
-        const existing = map.get(session.parentSessionId) ?? [];
-        existing.push(session);
-        map.set(session.parentSessionId, existing);
-      }
-    }
+  // Build parent info lookup: sessionId → parent display name
+  // So subagent cards can show "spawned by {parent}"
+  const sessionById = useMemo(() => {
+    const map = new Map<string, Session>();
+    for (const s of sessions) map.set(s.id, s);
     return map;
   }, [sessions]);
 
-  // Build team member grouping: lead session → team member sessions
-  // Team members spawned via Task tool are separate processes (not JSONL subagents),
-  // so we need to group them under their team lead card.
-  const { teamMemberMap, teamMemberIds } = useMemo(() => {
-    const sessionIdSet = new Set(sessions.map((s) => s.id));
-
-    // Find team leads from sessionTeamMap
-    const leadByTeam = new Map<string, string>();
-    for (const [sessionId, info] of sessionTeamMap) {
-      if (info.memberName === 'lead' && sessionIdSet.has(sessionId)) {
-        leadByTeam.set(info.teamName, sessionId);
-      }
-    }
-
-    const memberMap = new Map<string, Session[]>();
-    const memberIds = new Set<string>();
-
+  const parentInfoMap = useMemo(() => {
+    const map = new Map<string, { name: string; agentName?: string }>();
     for (const session of sessions) {
-      if (session.isSubagent) continue;
-      const info = sessionTeamMap.get(session.id);
-      if (!info || info.memberName === 'lead') continue;
-
-      const leadId = leadByTeam.get(info.teamName);
-      if (!leadId) continue;
-
-      memberIds.add(session.id);
-      const existing = memberMap.get(leadId) ?? [];
-      existing.push(session);
-      memberMap.set(leadId, existing);
-    }
-
-    return { teamMemberMap: memberMap, teamMemberIds: memberIds };
-  }, [sessions, sessionTeamMap]);
-
-  // Merge JSONL subagents + team members into one map for card nesting
-  const combinedSubagentMap = useMemo(() => {
-    const map = new Map(subagentMap);
-    for (const [leadId, members] of teamMemberMap) {
-      const existing = map.get(leadId) ?? [];
-      map.set(leadId, [...existing, ...members]);
+      if (!session.parentSessionId) continue;
+      const parent = sessionById.get(session.parentSessionId);
+      if (!parent) continue;
+      const parentTeam = sessionTeamMap.get(parent.id);
+      const name = parent.agentName
+        ?? (parentTeam ? `${parentTeam.teamName}/${parentTeam.memberName}` : null)
+        ?? parent.initialPrompt?.slice(0, 30)
+        ?? parent.id.slice(0, 8);
+      map.set(session.id, { name, agentName: parent.agentName });
     }
     return map;
-  }, [subagentMap, teamMemberMap]);
+  }, [sessions, sessionById, sessionTeamMap]);
 
-  // Only parent sessions (not subagents, not team members) go into columns
-  const parentSessions = useMemo(
-    () => sessions.filter((s) => !s.isSubagent && !teamMemberIds.has(s.id)),
-    [sessions, teamMemberIds]
-  );
-
-  // Group parent sessions by column
+  // All sessions are top-level cards — subagents get their own cards
+  // Group by column based on status
   const columnData = useMemo(() => {
     const statusToColumn = new Map<string, string>();
     for (const col of COLUMNS) {
@@ -119,19 +81,33 @@ export default function KanbanBoard({
       grouped.set(col.key, []);
     }
 
-    for (const session of parentSessions) {
+    for (const session of sessions) {
       const colKey = statusToColumn.get(session.status) ?? 'idle';
       grouped.get(colKey)!.push(session);
     }
 
-    // Sort each column
+    // Sort each column: parents before their children, then by column sort
     for (const col of COLUMNS) {
       const list = grouped.get(col.key)!;
-      list.sort(col.sort);
+      list.sort((a, b) => {
+        // Group children right after their parent
+        const aParent = a.parentSessionId ?? a.id;
+        const bParent = b.parentSessionId ?? b.id;
+        if (aParent !== bParent) {
+          // Get the parent sessions for time-based sorting
+          const aRoot = sessionById.get(aParent) ?? a;
+          const bRoot = sessionById.get(bParent) ?? b;
+          return col.sort(aRoot, bRoot);
+        }
+        // Same parent group: parent first, then children by activity
+        if (!a.parentSessionId && b.parentSessionId) return -1;
+        if (a.parentSessionId && !b.parentSessionId) return 1;
+        return col.sort(a, b);
+      });
     }
 
     return grouped;
-  }, [parentSessions]);
+  }, [sessions, sessionById]);
 
   return (
     <div className="flex gap-3 h-[calc(100vh-160px)] overflow-x-auto pb-2">
@@ -148,7 +124,7 @@ export default function KanbanBoard({
             sessionTeamMap={sessionTeamMap}
             sessionPaneMap={sessionPaneMap}
             tasksBySession={tasksBySession}
-            subagentMap={combinedSubagentMap}
+            parentInfoMap={parentInfoMap}
           />
         );
       })}

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { SessionActivity } from '../types.js';
-import { projectLabel, extractInitialPrompt, extractLatestPrompt, cleanPromptText, isSystemContent } from './session-scanner.js';
+import { projectLabel, extractInitialPrompt, extractLatestPrompt, cleanPromptText, isSystemContent, extractAgentIdentityFromFile } from './session-scanner.js';
 import type { LastEntryType } from './session-scanner.js';
 
 // --- Constants ---
@@ -76,6 +76,8 @@ export interface SessionFileState {
   tasksId?: string;
   initialPrompt?: string;
   latestPrompt?: string;
+  agentName?: string;
+  agentRole?: string;
 
   // Activity info
   lastToolName?: string;
@@ -169,6 +171,13 @@ export function bootstrapFromTail(filePath: string): SessionFileState | null {
     // Extract prompts (separate I/O reads for head + expanded tail)
     state.initialPrompt = extractInitialPrompt(filePath);
     state.latestPrompt = extractLatestPrompt(filePath);
+
+    // Extract named agent identity from initial prompt
+    const identity = extractAgentIdentityFromFile(filePath);
+    if (identity) {
+      state.agentName = identity.name;
+      state.agentRole = identity.role;
+    }
 
     fileStates.set(filePath, state);
     return state;

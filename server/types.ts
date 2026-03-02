@@ -52,8 +52,14 @@ export interface Session {
   isSubagent: boolean;
   parentSessionId?: string;
   agentId?: string;
+  agentName?: string;
+  agentRole?: string;
   subagentIds: string[];
   fileSize: number;
+  /** True when a subagent has error/waiting status that needs parent attention */
+  subagentAttention?: boolean;
+  /** Names of active subagents (propagated from working parent) */
+  activeSubagentNames?: string[];
 }
 
 export interface ProjectGroup {
@@ -72,6 +78,50 @@ export interface HookEvent {
   metadata?: Record<string, unknown>;
 }
 
+export interface DirectiveInitiative {
+  id: string;
+  title: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'failed';
+  phase: 'audit' | 'design' | 'build' | 'review' | null;
+}
+
+export interface DirectiveState {
+  directiveName: string;
+  status: 'executing' | 'completed' | 'failed';
+  totalInitiatives: number;
+  currentInitiative: number;
+  currentPhase: string;
+  initiatives: DirectiveInitiative[];
+  startedAt: string;
+  lastUpdated: string;
+}
+
+export interface GoalInventory {
+  generated: string;
+  goals: GoalArea[];
+}
+
+export interface GoalArea {
+  id: string;
+  title: string;
+  status: 'in_progress' | 'not_started' | 'done';
+  has_goal_md: boolean;
+  has_backlog: boolean;
+  has_okrs: boolean;
+  active_features: ActiveFeature[];
+  done_count: number;
+  backlog_count: number;
+  issues: string[];
+}
+
+export interface ActiveFeature {
+  name: string;
+  tasks_completed: number;
+  tasks_total: number;
+  completion_pct: number;
+  status: 'in_progress' | 'completed' | 'not_started';
+}
+
 export interface DashboardState {
   teams: Team[];
   sessions: Session[];
@@ -80,6 +130,8 @@ export interface DashboardState {
   tasksBySession: Record<string, TeamTask[]>;
   events: HookEvent[];
   sessionActivities: Record<string, SessionActivity>;
+  directiveState: DirectiveState | null;
+  goalInventory: GoalInventory | null;
   lastUpdated: string;
 }
 
@@ -128,10 +180,62 @@ export type WsMessageType =
   | 'events_updated'
   | 'session_activities_updated'
   | 'config_updated'
-  | 'notification_fired';
+  | 'notification_fired'
+  | 'directive_updated'
+  | 'goals_updated'
+  | 'state_updated';
 
 export interface WsMessage {
   version: 1;
   type: WsMessageType;
   payload: unknown;
+}
+
+// --- Intelligence Trends types ---
+
+export interface IntelligenceAgentStats {
+  agent: string;
+  domain: string;
+  totalFindings: number;
+  findingsByUrgency: Record<string, number>;
+  findingsByType: Record<string, number>;
+  proposalsSubmitted: number;
+  proposalsAccepted: number;
+  acceptanceRate: number;
+  topProducts: string[];
+}
+
+export interface IntelligenceTopicCluster {
+  topic: string;
+  keywords: string[];
+  mentionCount: number;
+  agents: string[];
+  urgencyMax: string;
+  items: Array<{ id: string; title: string; agent: string; urgency: string }>;
+}
+
+export interface IntelligenceCrossScoutSignal {
+  topic: string;
+  agentCount: number;
+  agents: string[];
+  totalMentions: number;
+  highestUrgency: string;
+  items: Array<{ id: string; title: string; agent: string; urgency: string }>;
+  strength: 'strong' | 'moderate' | 'weak';
+  shouldPromote: boolean;
+}
+
+export interface IntelligenceTrendsResult {
+  generated: string;
+  scoutDate: string | null;
+  totalFindings: number;
+  totalProposals: number;
+  totalAccepted: number;
+  overallAcceptanceRate: number;
+  agentStats: IntelligenceAgentStats[];
+  topTopics: IntelligenceTopicCluster[];
+  crossScoutSignals: IntelligenceCrossScoutSignal[];
+  urgencyBreakdown: Record<string, number>;
+  typeBreakdown: Record<string, number>;
+  productHeatmap: Record<string, number>;
 }

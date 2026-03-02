@@ -1,0 +1,14 @@
+{
+  "id": "reflexion-lessons",
+  "title": "Directive: Verbal Self-Reflection Format for Lessons",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "agent-conductor"
+  ],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

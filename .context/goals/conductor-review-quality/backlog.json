@@ -1,0 +1,117 @@
+{
+  "goal_id": "conductor-review-quality",
+  "last_reviewed": "2026-03-02",
+  "staleness_threshold_days": 30,
+  "items": [
+    {
+      "id": "dod-in-planning-done",
+      "title": "DOD in Planning ✅ Done",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "ceo-corrections-cross-reference-done",
+      "title": "CEO Corrections Cross-Reference ✅ Done",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "mandatory-visual-verification-gate-done",
+      "title": "Mandatory Visual Verification Gate ✅ Done",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "concrete-adversarial-review-checklist-done",
+      "title": "Concrete Adversarial Review Checklist ✅ Done",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "multi-reviewer-casting-system-done",
+      "title": "Multi-reviewer casting system ✅ Done",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "dod-in-ceo-plan-approval",
+      "title": "DOD in CEO plan approval",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "corrections-caught-section-in-ceo-report-done",
+      "title": "Corrections-caught section in CEO report ✅ Done",
+      "status": "done",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "dod-amendments-during-clarification-phase-when-scope-shifts",
+      "title": "DOD amendments during clarification phase (when scope shifts)",
+      "status": "deferred",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "dod-effectiveness-tracking-pass-fail-rates-over-time-in-digest-self-assessment",
+      "title": "DOD effectiveness tracking (pass/fail rates over time in digest self-assessment)",
+      "status": "deferred",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "correction-add-command-for-ceo-to-add-new-standing-corrections-from-report-workflow",
+      "title": "`/correction add` command for CEO to add new standing corrections from report workflow",
+      "status": "deferred",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    },
+    {
+      "id": "elevate-never-run-prisma-migrations-to-standing-correction-marcus-suggestion",
+      "title": "Elevate \"never run Prisma migrations\" to Standing Correction (Marcus suggestion)",
+      "status": "deferred",
+      "created": "2026-03-02",
+      "updated": "2026-03-02",
+      "source_directive": null,
+      "promoted_to_feature": null,
+      "promoted_at": null
+    }
+  ]
+}

@@ -13,7 +13,7 @@ interface KanbanColumnProps {
   sessionTeamMap: Map<string, { teamName: string; memberName: string }>;
   sessionPaneMap: Map<string, string>;
   tasksBySession: Record<string, TeamTask[]>;
-  subagentMap: Map<string, Session[]>;
+  parentInfoMap: Map<string, { name: string; agentName?: string }>;
 }
 
 export default function KanbanColumn({
@@ -25,7 +25,7 @@ export default function KanbanColumn({
   sessionTeamMap,
   sessionPaneMap,
   tasksBySession,
-  subagentMap,
+  parentInfoMap,
 }: KanbanColumnProps) {
   return (
     <div className="flex flex-col min-w-[320px] max-w-[380px] bg-secondary/30 rounded-lg shrink-0">
@@ -45,17 +45,7 @@ export default function KanbanColumn({
             <p className="text-xs text-muted-foreground text-center py-4">No sessions</p>
           ) : (
             sessions.map((session) => {
-              const subagents = subagentMap.get(session.id) ?? [];
               const tasks = tasksBySession[session.id] ?? [];
-
-              // Build subagent activity map for this session's subagents
-              const subagentActivities: Record<string, SessionActivity> = {};
-              for (const sub of subagents) {
-                const activity = sessionActivities[sub.id];
-                if (activity) {
-                  subagentActivities[sub.id] = activity;
-                }
-              }
 
               return (
                 <KanbanCard
@@ -65,9 +55,7 @@ export default function KanbanColumn({
                   teamInfo={sessionTeamMap.get(session.id)}
                   paneId={sessionPaneMap.get(session.id)}
                   tasks={tasks}
-                  subagents={subagents}
-                  subagentActivities={subagentActivities}
-                  sessionTeamMap={sessionTeamMap}
+                  parentInfo={parentInfoMap.get(session.id)}
                 />
               );
             })

@@ -1,0 +1,12 @@
+{
+  "id": "projects-page-polish",
+  "title": "Projects Page — Real Data & Full Details",
+  "status": "done",
+  "created": "2026-03-03",
+  "completed": "2026-03-03",
+  "weight": "medium",
+  "goal_ids": ["agent-conductor", "conductor-ux"],
+  "produced_features": [],
+  "report": "reports/projects-page-polish-2026-03-03.md",
+  "backlog_sources": []
+}

@@ -1,0 +1,14 @@
+{
+  "id": "team-org-dashboard",
+  "title": "Team & Agent Org Dashboard",
+  "status": "pending",
+  "created": "2026-03-02",
+  "completed": null,
+  "weight": "standard",
+  "goal_ids": [
+    "conductor-ux"
+  ],
+  "produced_features": [],
+  "report": null,
+  "backlog_sources": []
+}

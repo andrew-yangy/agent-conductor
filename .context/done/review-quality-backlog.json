@@ -1,0 +1,14 @@
+{
+  "id": "review-quality-backlog",
+  "title": "Directive: Review Quality Backlog Completion",
+  "status": "done",
+  "created": "2026-03-02",
+  "completed": "2026-03-02",
+  "weight": "standard",
+  "goal_ids": [
+    "conductor-review-quality"
+  ],
+  "produced_features": [],
+  "report": "review-quality-backlog-2026-03-02",
+  "backlog_sources": []
+}

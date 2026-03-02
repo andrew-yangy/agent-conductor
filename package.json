@@ -3,6 +3,9 @@
   "private": false,
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "agent-conductor": "./cli/index.ts"
+  },
   "scripts": {
     "dev": "concurrently \"tsx watch server/index.ts\" \"vite\"",
     "dev:server": "tsx watch server/index.ts",
@@ -14,6 +17,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-scroll-area": "^1.2.10",
@@ -26,6 +30,7 @@
     "chokidar": "^5.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "concurrently": "^9.2.1",
     "lucide-react": "^0.575.0",
     "radix-ui": "^1.4.3",

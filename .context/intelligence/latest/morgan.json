@@ -1,0 +1,18 @@
+{
+  "agent": "morgan",
+  "domain": "operations",
+  "scout_date": "2026-03-02",
+  "intelligence": [
+    {"id": "crewai-flows-dual-arch", "type": "framework_update", "urgency": "this_month", "title": "CrewAI Flows: event-driven pipelines alongside autonomous crews", "products_affected": ["conductor"]},
+    {"id": "langgraph-durable-exec-critique", "type": "advisory", "urgency": "this_month", "title": "Checkpoints are not durable execution", "products_affected": ["conductor"]},
+    {"id": "claude-code-worktree-background", "type": "framework_update", "urgency": "act_now", "title": "Claude Code v2.1.50-63: /batch, HTTP hooks, worktree isolation", "detail": "/batch for parallel tasks with worktree isolation. HTTP hooks for external integration. Memory leak fixes.", "products_affected": ["conductor"]},
+    {"id": "a2a-protocol-agent-interop", "type": "market_shift", "urgency": "this_month", "title": "Google A2A protocol reaches Linux Foundation", "products_affected": ["conductor"]},
+    {"id": "ai-code-review-tools-mature", "type": "opportunity", "urgency": "this_week", "title": "AI code review tools — CodeRabbit free tier", "detail": "CodeRabbit: free tier, 2M+ repos, 13M PRs reviewed. Cursor Bugbot: $40/user/month. Graphite: $15/dev.", "products_affected": ["conductor", "buywisely", "sellwisely"]},
+    {"id": "claude-code-hidden-swarm", "type": "framework_update", "urgency": "this_week", "title": "Claude Code feature-flagged TeammateTool with 13 operations", "products_affected": ["conductor"]},
+    {"id": "governance-gap-risk", "type": "advisory", "urgency": "this_month", "title": "81% deploying agents but only 14.4% have security approval", "products_affected": ["conductor"]},
+    {"id": "ag2-production-gap", "type": "competitor_move", "urgency": "fyi", "title": "AG2 (AutoGen successor) still not production-ready", "products_affected": ["conductor"]},
+    {"id": "metagpt-fading", "type": "competitor_move", "urgency": "fyi", "title": "MetaGPT losing prominence", "products_affected": ["conductor"]},
+    {"id": "solo-founder-ai-stack-economics", "type": "market_shift", "urgency": "fyi", "title": "Solo-founder AI operations viable at $75-150/mo", "products_affected": ["conductor"]}
+  ],
+  "summary": "Claude Code ships native orchestration primitives that can replace custom conductor code. AI code review tools hit maturity with free tiers. Agent framework landscape validates our architecture."
+}

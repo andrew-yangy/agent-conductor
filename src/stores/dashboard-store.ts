@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { DashboardState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup } from './types';
+import type { DashboardState, DirectiveState, GoalInventory, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from './types';
 
 interface DashboardStore extends DashboardState {
   connected: boolean;
+  workState: FullWorkState | null;
   notificationConfig: NotificationConfig;
   notificationFired: Record<string, number>;
   setFullState: (state: DashboardState) => void;
@@ -14,6 +15,9 @@ interface DashboardStore extends DashboardState {
   updateEvents: (events: HookEvent[]) => void;
   setConnected: (connected: boolean) => void;
   updateSessionActivities: (activities: Record<string, SessionActivity>) => void;
+  updateDirectiveState: (state: DirectiveState | null) => void;
+  updateGoalInventory: (inventory: GoalInventory | null) => void;
+  setWorkState: (state: FullWorkState) => void;
   updateNotificationConfig: (config: NotificationConfig) => void;
   addNotificationFired: (sessionId: string) => void;
   deleteTeam: (teamName: string) => Promise<void>;
@@ -27,6 +31,9 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   tasksBySession: {},
   events: [],
   sessionActivities: {},
+  directiveState: null,
+  goalInventory: null,
+  workState: null,
   lastUpdated: '',
   connected: false,
   notificationConfig: { macOS: true, browser: true },
@@ -40,6 +47,8 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       tasksByTeam: state.tasksByTeam ?? {},
       tasksBySession: state.tasksBySession ?? {},
       events: state.events ?? [],
+      directiveState: state.directiveState ?? null,
+      goalInventory: state.goalInventory ?? null,
       lastUpdated: state.lastUpdated || new Date().toISOString(),
     }),
 
@@ -74,6 +83,15 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
     set((state) => ({
       sessionActivities: { ...state.sessionActivities, ...activities },
     })),
+
+  updateDirectiveState: (directiveState) =>
+    set({ directiveState }),
+
+  updateGoalInventory: (goalInventory) =>
+    set({ goalInventory }),
+
+  setWorkState: (workState) =>
+    set({ workState, lastUpdated: new Date().toISOString() }),
 
   updateNotificationConfig: (config) =>
     set({ notificationConfig: config }),

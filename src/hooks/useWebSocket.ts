@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import type { WsMessage, DashboardState, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup } from '@/stores/types';
+import type { WsMessage, DashboardState, DirectiveState, GoalInventory, Session, HookEvent, Team, TeamTask, SessionActivity, NotificationConfig, ProjectGroup, FullWorkState } from '@/stores/types';
 
 const WS_URL = 'ws://localhost:4444';
 const MAX_RECONNECT_DELAY = 30000;
@@ -20,6 +20,9 @@ export function useWebSocket() {
     updateEvents,
     setConnected,
     updateSessionActivities,
+    updateDirectiveState,
+    updateGoalInventory,
+    setWorkState,
     updateNotificationConfig,
     addNotificationFired,
   } = useDashboardStore();
@@ -40,6 +43,20 @@ export function useWebSocket() {
           .then((res) => res.json())
           .then((data: { notifications?: NotificationConfig }) => {
             if (data.notifications) updateNotificationConfig(data.notifications);
+          })
+          .catch(() => {});
+
+        // Fetch initial work state
+        fetch('http://localhost:4444/api/state/goals')
+          .then((res) => res.json())
+          .then((goals: FullWorkState['goals']) => {
+            Promise.all([
+              fetch('http://localhost:4444/api/state/features').then(r => r.json()),
+              fetch('http://localhost:4444/api/state/backlogs').then(r => r.json()),
+              fetch('http://localhost:4444/api/state/conductor').then(r => r.json()),
+            ]).then(([features, backlogs, conductor]) => {
+              setWorkState({ goals, features, backlogs, conductor, index: null });
+            }).catch(() => {});
           })
           .catch(() => {});
       };
@@ -80,6 +97,15 @@ export function useWebSocket() {
               break;
             case 'session_activities_updated':
               updateSessionActivities(payload.sessionActivities as Record<string, SessionActivity>);
+              break;
+            case 'directive_updated':
+              updateDirectiveState(payload.directiveState as DirectiveState | null);
+              break;
+            case 'goals_updated':
+              updateGoalInventory(payload.goalInventory as GoalInventory | null);
+              break;
+            case 'state_updated':
+              setWorkState(payload.workState as FullWorkState);
               break;
             case 'config_updated':
               updateNotificationConfig(payload.notifications as NotificationConfig);
@@ -129,5 +155,5 @@ export function useWebSocket() {
         wsRef.current = null;
       }
     };
-  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateNotificationConfig, addNotificationFired]);
+  }, [setFullState, updateSessions, updateProjects, updateTeams, updateTasks, addEvent, updateEvents, setConnected, updateSessionActivities, updateDirectiveState, updateGoalInventory, setWorkState, updateNotificationConfig, addNotificationFired]);
 }
