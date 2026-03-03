@@ -2,8 +2,12 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { watch, type FSWatcher } from 'chokidar';
 import type { Aggregator } from '../state/aggregator.js';
-import type { ConductorConfig, GoalInventory } from '../types.js';
+import type { ConductorConfig, GoalInventory, GoalArea, ActiveFeature } from '../types.js';
 
+/**
+ * Watches .context/goals/ for goal.json and project.json changes.
+ * Builds a GoalInventory from direct file reads (replaces inventory.json).
+ */
 export class GoalWatcher {
   private watchers: FSWatcher[] = [];
   private aggregator: Aggregator;
@@ -29,7 +33,6 @@ export class GoalWatcher {
     for (const project of this.config.projects) {
       const goalsDir = path.join(project.path, '.context', 'goals');
 
-      // Create the directory if it doesn't exist so chokidar can watch it
       if (!fs.existsSync(goalsDir)) {
         try {
           fs.mkdirSync(goalsDir, { recursive: true });
@@ -39,19 +42,21 @@ export class GoalWatcher {
         }
       }
 
-      console.log(`[goal-watcher] Watching ${goalsDir}/inventory.json (${project.name})`);
+      console.log(`[goal-watcher] Watching ${goalsDir} (${project.name})`);
 
       const watcher = watch(goalsDir, {
         ignoreInitial: true,
         persistent: true,
         awaitWriteFinish: {
-          stabilityThreshold: 200,
+          stabilityThreshold: 300,
           pollInterval: 50,
         },
+        depth: 4,
       });
 
       watcher.on('all', (_event: string, filePath: string) => {
-        if (!filePath.endsWith('inventory.json')) return;
+        // React to goal.json, project.json, and backlog.json changes
+        if (!filePath.endsWith('.json')) return;
         this.handleChange();
       });
 
@@ -85,22 +90,16 @@ export class GoalWatcher {
   }
 
   readCurrentState(): GoalInventory | null {
-    // Read inventory.json from the first project that has one
     for (const project of this.config.projects) {
-      const filePath = path.join(project.path, '.context', 'goals', 'inventory.json');
-      try {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        const parsed = JSON.parse(raw) as GoalInventory;
+      const goalsDir = path.join(project.path, '.context', 'goals');
+      if (!fs.existsSync(goalsDir)) continue;
 
-        // Basic validation
-        if (!parsed.generated || !Array.isArray(parsed.goals)) {
-          continue;
-        }
-
-        return parsed;
-      } catch {
-        // File doesn't exist or is invalid, continue to next project
-        continue;
+      const goalAreas = this.buildGoalAreas(goalsDir);
+      if (goalAreas.length > 0) {
+        return {
+          generated: new Date().toISOString(),
+          goals: goalAreas,
+        };
       }
     }
     return null;
@@ -118,7 +117,139 @@ export class GoalWatcher {
 
   private readAndUpdate(): void {
     const state = this.readCurrentState();
-    console.log(`[goal-watcher] Goal inventory: ${state ? `${state.goals.length} goals (generated ${state.generated})` : 'none'}`);
+    console.log(`[goal-watcher] Goal inventory: ${state ? `${state.goals.length} goals` : 'none'}`);
     this.aggregator.updateGoalInventory(state);
+  }
+
+  private buildGoalAreas(goalsDir: string): GoalArea[] {
+    const areas: GoalArea[] = [];
+
+    let goalDirs: string[];
+    try {
+      goalDirs = fs.readdirSync(goalsDir).filter((name) => {
+        if (name.startsWith('.') || name.startsWith('_')) return false;
+        try {
+          return fs.statSync(path.join(goalsDir, name)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      return [];
+    }
+
+    for (const goalId of goalDirs) {
+      const goalDir = path.join(goalsDir, goalId);
+      const goalJsonPath = path.join(goalDir, 'goal.json');
+
+      let goalJson: Record<string, unknown> | null;
+      try {
+        goalJson = JSON.parse(fs.readFileSync(goalJsonPath, 'utf-8')) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+
+      // Read projects
+      const projectsDir = path.join(goalDir, 'projects');
+      const activeFeatures: ActiveFeature[] = [];
+      let doneCount = 0;
+
+      if (fs.existsSync(projectsDir)) {
+        let projDirs: string[];
+        try {
+          projDirs = fs.readdirSync(projectsDir).filter((name) => {
+            if (name.startsWith('.')) return false;
+            try {
+              return fs.statSync(path.join(projectsDir, name)).isDirectory();
+            } catch {
+              return false;
+            }
+          });
+        } catch {
+          projDirs = [];
+        }
+
+        for (const projId of projDirs) {
+          const projJsonPath = path.join(projectsDir, projId, 'project.json');
+          let projJson: Record<string, unknown>;
+          try {
+            projJson = JSON.parse(fs.readFileSync(projJsonPath, 'utf-8')) as Record<string, unknown>;
+          } catch {
+            continue;
+          }
+
+          const tasks = Array.isArray(projJson.tasks) ? projJson.tasks as Array<Record<string, unknown>> : [];
+          const tasksTotal = tasks.length;
+          const tasksCompleted = tasks.filter(
+            (t) => t.status === 'completed'
+          ).length;
+          const completionPct = tasksTotal > 0
+            ? Math.round((tasksCompleted / tasksTotal) * 100)
+            : 0;
+
+          const projStatus = String(projJson.status ?? 'pending');
+          const isCompleted = projStatus === 'completed';
+
+          if (isCompleted) {
+            doneCount++;
+          }
+
+          // Map to ActiveFeature shape (used by dashboard)
+          const mappedStatus: ActiveFeature['status'] = isCompleted
+            ? 'completed'
+            : projStatus === 'in_progress' || projStatus === 'active'
+              ? 'in_progress'
+              : 'not_started';
+
+          activeFeatures.push({
+            name: String(projJson.title ?? projId),
+            tasks_completed: tasksCompleted,
+            tasks_total: tasksTotal,
+            completion_pct: isCompleted ? 100 : completionPct,
+            status: mappedStatus,
+          });
+        }
+      }
+
+      // Read backlog count
+      const backlogJsonPath = path.join(goalDir, 'backlog.json');
+      let backlogCount = 0;
+      try {
+        const backlogRaw = JSON.parse(fs.readFileSync(backlogJsonPath, 'utf-8'));
+        if (Array.isArray(backlogRaw)) {
+          backlogCount = backlogRaw.filter(
+            (item: Record<string, unknown>) => item.status !== 'completed' && item.status !== 'promoted'
+          ).length;
+        }
+      } catch {
+        // No backlog file
+      }
+
+      // Map goal status
+      const goalStatus = String(goalJson.status ?? 'in_progress');
+      const mappedGoalStatus: GoalArea['status'] = goalStatus === 'completed'
+        ? 'completed'
+        : goalStatus === 'in_progress' || goalStatus === 'active'
+          ? 'in_progress'
+          : 'not_started';
+
+      const okrs = goalJson.okrs;
+      const hasOkrs = Array.isArray(okrs) && okrs.length > 0;
+
+      areas.push({
+        id: goalId,
+        title: String(goalJson.title ?? goalId),
+        status: mappedGoalStatus,
+        has_goal_md: true, // We successfully read goal.json
+        has_backlog: backlogCount > 0,
+        has_okrs: hasOkrs,
+        active_features: activeFeatures.filter((f) => f.status !== 'completed'),
+        done_count: doneCount,
+        backlog_count: backlogCount,
+        issues: [],
+      });
+    }
+
+    return areas;
   }
 }

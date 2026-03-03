@@ -1,19 +1,47 @@
 {
   "id": "context-tree-redesign",
-  "title": "Context Tree Redesign — Three-tier Goal > Project > Task hierarchy with clean-slate migration",
+  "title": "Context Tree Redesign \u2014 Three-tier Goal > Project > Task hierarchy with clean-slate migration",
   "goal_id": "data-model",
   "status": "completed",
   "priority": "p0",
   "description": "Complete redesign of the .context/ directory structure. Three-tier hierarchy (Goal > Project > Task), embedded tasks in project.json, flat directives with triage linking, kill state/indexer, co-locate context with entities. Definitive spec from 4 brainstorm rounds.",
   "source_directive": "context-tree-redesign",
   "scope": {
-    "in": ["agent-conductor .context/ directory structure", "SKILL.md path references", "agent .md path references"],
-    "out": ["server/dashboard code (separate project: dashboard-glob-reads)", "MCP server tools", "sw consumer repo (separate backlog item: sw-consumer-migration)"]
+    "in": [
+      "agent-conductor .context/ directory structure",
+      "SKILL.md path references",
+      "agent .md path references"
+    ],
+    "out": [
+      "server/dashboard code (separate project: dashboard-glob-reads)",
+      "MCP server tools",
+      "sw consumer repo (separate backlog item: sw-consumer-migration)"
+    ]
   },
   "dod": [
-    { "criterion": "All goal.json, project.json, directive.json, backlog.json files conform to SPEC.md schemas", "met": true, "verified_by": ["morgan"] },
-    { "criterion": "Zero stale path references in SKILL.md and agent .md files", "met": true, "verified_by": ["sarah"] },
-    { "criterion": "3-agent review (path audit, data integrity, SPEC compliance) passes", "met": true, "verified_by": ["sarah", "marcus", "morgan"] }
+    {
+      "criterion": "All goal.json, project.json, directive.json, backlog.json files conform to SPEC.md schemas",
+      "met": true,
+      "verified_by": [
+        "morgan"
+      ]
+    },
+    {
+      "criterion": "Zero stale path references in SKILL.md and agent .md files",
+      "met": true,
+      "verified_by": [
+        "sarah"
+      ]
+    },
+    {
+      "criterion": "3-agent review (path audit, data integrity, SPEC compliance) passes",
+      "met": true,
+      "verified_by": [
+        "sarah",
+        "marcus",
+        "morgan"
+      ]
+    }
   ],
   "verify": {
     "checklist": [
@@ -22,8 +50,14 @@
       "Every active/pending project has dod and verify fields populated"
     ],
     "reviewers": [
-      { "agent": "sarah", "domain": "architecture — schema compliance and structural integrity" },
-      { "agent": "morgan", "domain": "process — SPEC compliance, entity completeness" }
+      {
+        "agent": "sarah",
+        "domain": "architecture \u2014 schema compliance and structural integrity"
+      },
+      {
+        "agent": "morgan",
+        "domain": "process \u2014 SPEC compliance, entity completeness"
+      }
     ],
     "browser_test": false
   },
@@ -34,69 +68,131 @@
       "title": "Create SPEC.md with definitive entity schemas and directory structure",
       "status": "completed",
       "phase": "design",
-      "agent": [],
+      "agent": [
+        "self"
+      ],
       "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": [
+        "sarah",
+        "morgan"
+      ],
+      "review_outcome": "pass",
       "output": "SPEC.md created with full schemas for Goal, Project, Task, Directive, Backlog",
-      "created": "2026-03-03",
-      "completed": "2026-03-03"
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
     },
     {
       "id": "t2",
       "title": "Execute agent-conductor migration to new structure",
       "status": "completed",
       "phase": "build",
-      "agent": ["alex"],
-      "depends_on": ["t1"],
+      "agent": [
+        "alex"
+      ],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": [
+        "sarah",
+        "morgan"
+      ],
+      "review_outcome": "pass",
       "output": "3 goals (data-model, workflow-orchestration, ui), 18 projects, 35 directives migrated. Branch: directive/context-tree-redesign",
-      "created": "2026-03-03",
-      "completed": "2026-03-03"
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
     },
     {
       "id": "t3",
       "title": "Update all 6 SKILL.md files and 8 agent .md files to reference new paths",
       "status": "completed",
       "phase": "build",
-      "agent": ["engineer"],
-      "depends_on": ["t2"],
-      "output": "All 6 SKILL.md + 8 agent files updated. Fixed: lessons.md→lessons/*.md, backlog.md→backlog.json, features/→projects/, intelligence/→intel/",
-      "created": "2026-03-03",
-      "completed": "2026-03-03"
+      "agent": [
+        "engineer"
+      ],
+      "depends_on": [
+        "t2"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": [
+        "sarah",
+        "morgan"
+      ],
+      "review_outcome": "pass",
+      "output": "All 6 SKILL.md + 8 agent files updated. Fixed: lessons.md\u2192lessons/*.md, backlog.md\u2192backlog.json, features/\u2192projects/, intelligence/\u2192intel/",
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
     },
     {
       "id": "t4",
       "title": "Create CLAUDE.md for agent-conductor repo",
       "status": "completed",
       "phase": "build",
-      "agent": ["engineer"],
-      "depends_on": ["t2"],
+      "agent": [
+        "engineer"
+      ],
+      "depends_on": [
+        "t2"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": [
+        "sarah",
+        "morgan"
+      ],
+      "review_outcome": "pass",
       "output": "CLAUDE.md created with context tree structure and lessons routing table",
-      "created": "2026-03-03",
-      "completed": "2026-03-03"
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
     },
     {
       "id": "t5",
       "title": "Verify migration: entity counts, orphan checks, broken references",
       "status": "completed",
       "phase": "test",
-      "agent": ["sarah", "marcus", "morgan"],
-      "depends_on": ["t2", "t3", "t4"],
+      "agent": [
+        "sarah",
+        "marcus",
+        "morgan"
+      ],
+      "depends_on": [
+        "t2",
+        "t3",
+        "t4"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": [
+        "sarah",
+        "morgan"
+      ],
+      "review_outcome": "pass",
       "output": "3-agent review: Sarah (path audit, 80+ stale refs found+fixed), Marcus (data integrity, PASS), Morgan (SPEC compliance, 3 blocking issues found+fixed)",
-      "created": "2026-03-03",
-      "completed": "2026-03-03"
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
     },
     {
       "id": "t6",
       "title": "Change task.agent and dod.verified_by from string to array in SPEC and all project.json files",
       "status": "completed",
       "phase": "build",
-      "agent": [],
-      "depends_on": ["t5"],
-      "output": "SPEC.md updated (agent: string→array, verified_by: string→array). All project.json files migrated: context-tree-redesign, dashboard-glob-reads, team-org-dashboard, improve-session-subagent-ui.",
-      "created": "2026-03-03",
-      "completed": "2026-03-03"
+      "agent": [
+        "self"
+      ],
+      "depends_on": [
+        "t5"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": [
+        "sarah",
+        "morgan"
+      ],
+      "review_outcome": "pass",
+      "output": "SPEC.md updated (agent: string\u2192array, verified_by: string\u2192array). All project.json files migrated: context-tree-redesign, dashboard-glob-reads, team-org-dashboard, improve-session-subagent-ui.",
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
     }
   ],
-  "created": "2026-03-03",
-  "updated": "2026-03-03",
-  "completed": "2026-03-03"
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z"
 }

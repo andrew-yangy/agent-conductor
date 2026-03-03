@@ -183,16 +183,16 @@ function scaffoldContext(projectPath: string, config: InitConfig): void {
   const goals = goalsTemplate.replace(/\{\{PROJECT_NAME\}\}/g, config.projectName);
   writeFile(path.join(contextDir, 'goals', '_index.md'), goals);
 
-  // Conductor context
+  // Lessons directory
   const lessonsTemplate = fs.readFileSync(path.join(TEMPLATES_DIR, 'lessons.md'), 'utf-8');
   const lessons = lessonsTemplate.replace(/\{\{PROJECT_NAME\}\}/g, config.projectName);
-  writeFile(path.join(contextDir, 'conductor', 'lessons.md'), lessons);
+  writeFile(path.join(contextDir, 'lessons', 'index.md'), lessons);
 
   // Empty directories with .gitkeep
   const emptyDirs = [
-    path.join(contextDir, 'conductor', 'inbox'),
-    path.join(contextDir, 'conductor', 'done'),
-    path.join(contextDir, 'conductor', 'reports'),
+    path.join(contextDir, 'directives'),
+    path.join(contextDir, 'reports'),
+    path.join(contextDir, 'intel'),
   ];
 
   for (const dir of emptyDirs) {
@@ -298,7 +298,7 @@ export async function runInit(flags: Record<string, string | boolean>): Promise<
 
   // 3. Scaffold context tree
   scaffoldContext(config.projectPath, config);
-  console.log(`  [+] Context: vision.md, goals/_index.md, conductor/`);
+  console.log(`  [+] Context: vision.md, goals/_index.md, directives/, lessons/`);
 
   // 4. Configure global settings
   configureGlobal(config);
@@ -329,7 +329,7 @@ export async function runInit(flags: Record<string, string | boolean>): Promise<
      }
 
   4. Create your first directive:
-     Write a markdown file in ${path.join(config.projectPath, '.context', 'conductor', 'inbox')}
+     Write a JSON file in ${path.join(config.projectPath, '.context', 'directives')}
      Then run: claude -p "/directive my-directive-name"
 
   Happy orchestrating!

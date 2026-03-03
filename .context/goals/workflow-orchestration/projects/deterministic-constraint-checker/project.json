@@ -1,0 +1,165 @@
+{
+  "id": "deterministic-constraint-checker",
+  "title": "Deterministic constraint checker for directive pipeline",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p0",
+  "sequence": 2,
+  "depends_on_project": "workflow-orchestration/skill-md-restructure",
+  "description": "Replace prose-based ALWAYS rules and reviewer checklists with deterministic, machine-checkable constraints. Build a constraint system: (1) constraint definitions as structured data (pattern, severity, remediation), (2) a checker script that validates directive outputs against constraints, (3) integration into the pipeline as a mandatory pre-review gate, (4) escalation ladder (warn \u2192 block \u2192 critical). Not a custom ESLint plugin \u2014 a standalone checker that reads constraint definitions and validates file changes / plan JSON / code output.",
+  "source_directive": "harness-engineering-adoption",
+  "scope": {
+    "in": [
+      "Constraint definition format (JSON): pattern, severity, remediation text, applies_to",
+      "Checker script (TypeScript) that loads constraints and validates against git diff, plan JSON, reviewer JSON",
+      "Seed constraints: standing corrections from preferences.md, ALWAYS rules from SKILL.md, known footguns from lessons.md",
+      "Pipeline integration: mandatory check between build and review steps",
+      "Escalation ladder: info (log only) \u2192 warn (report in digest) \u2192 block (fail review) \u2192 critical (halt directive)",
+      "Clear output format showing which constraints passed/failed with remediation steps"
+    ],
+    "out": [
+      "Custom ESLint plugin infrastructure",
+      "Runtime code analysis (AST parsing, type checking)",
+      "Modifying existing ESLint config",
+      "Constraint UI in dashboard"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "Constraint definition format documented with 3+ example constraints",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Checker script runs against a git diff and returns structured pass/fail results",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "All 4 standing corrections from preferences.md are encoded as constraints",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Pipeline invokes checker before review step \u2014 failures block review",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Escalation ladder works: info constraints don't block, critical constraints halt",
+      "met": false,
+      "verified_by": []
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "Run checker against a known-violating diff \u2014 confirms it catches violations",
+      "Run checker against a clean diff \u2014 confirms no false positives",
+      "Verify pipeline integration: build step output passes through checker before reaching reviewer",
+      "Verify escalation: info constraint only logs, block constraint fails review, critical halts"
+    ],
+    "reviewers": [
+      {
+        "agent": "sarah",
+        "domain": "architecture \u2014 script correctness, constraint format sanity, no over-engineering"
+      },
+      {
+        "agent": "morgan",
+        "domain": "process \u2014 pipeline flow preserved, escalation ladder makes sense"
+      }
+    ],
+    "browser_test": false
+  },
+  "tags": [
+    "harness-engineering",
+    "quality-gates",
+    "automation"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Design constraint definition format and escalation ladder",
+      "status": "pending",
+      "phase": "design",
+      "agent": [
+        "sarah"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t2",
+      "title": "Seed constraint definitions from standing corrections, ALWAYS rules, and lessons.md footguns",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t3",
+      "title": "Build checker script \u2014 load constraints, validate against git diff + plan JSON + reviewer JSON",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t4",
+      "title": "Integrate checker into pipeline as pre-review gate in step docs",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t3"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t5",
+      "title": "Test against known-good and known-bad diffs \u2014 validate catch rate and false positive rate",
+      "status": "pending",
+      "phase": "test",
+      "agent": [
+        "sarah"
+      ],
+      "depends_on": [
+        "t4"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    }
+  ],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "completed": null
+}

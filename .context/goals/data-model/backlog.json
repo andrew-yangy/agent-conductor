@@ -9,20 +9,21 @@
     "source_detail": "checkpoint-resume directive",
     "trigger": "When checkpoint-resume is used 3+ times and CEO wants dashboard visibility",
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "sw-consumer-migration",
     "title": "Migrate sw consumer repo .context/ to new context tree structure",
     "description": "The sw repo still uses the old context tree structure (goals/_index.md, goal.md, backlog.md, features/active/done/). Migrate to the new SPEC.md structure: goal.json, backlog.json, projects/ with project.json. Also update scripts/index-state.ts in sw to read the new format.",
     "priority": "p1",
-    "status": "proposed",
+    "status": "promoted",
     "source": "directive",
     "source_detail": "context-tree-redesign Initiative 1 task t6",
     "trigger": "After dashboard-glob-reads is complete and agent-conductor migration is merged",
-    "promoted_to": null,
-    "created": "2026-03-03",
-    "updated": "2026-03-03"
+    "promoted_to": "directive/sw-consumer-migration",
+    "promoted_at": "2026-03-03T00:00:00Z",
+    "created": "2026-03-03T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   }
 ]

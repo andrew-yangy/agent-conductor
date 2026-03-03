@@ -1,12 +1,12 @@
 {
   "id": "work-state-management",
-  "title": "Work State Management \u2014 The Foundational Fix",
+  "title": "Work State Management — The Foundational Fix",
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
-  "created": "2026-03-02",
-  "updated": "2026-03-02",
-  "completed": "2026-03-02",
+  "created": "2026-03-02T00:00:00Z",
+  "updated": "2026-03-02T00:00:00Z",
+  "completed": "2026-03-02T00:00:00Z",
   "triage": {
     "action": "update_existing",
     "goal_id": "data-model",

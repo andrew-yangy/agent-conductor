@@ -1,0 +1,14 @@
+{
+  "id": "sw-consumer-migration",
+  "title": "Migrate sw repo to new context tree structure",
+  "status": "completed",
+  "created": "2026-03-03T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z",
+  "weight": "medium",
+  "goal_ids": [
+    "data-model"
+  ],
+  "produced_features": [],
+  "report": "reports/sw-consumer-migration-2026-03-03.md",
+  "backlog_sources": []
+}

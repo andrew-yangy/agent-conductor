@@ -1,12 +1,12 @@
 {
   "id": "complete-option-b-goal-structure",
-  "title": "Complete Option B: Structured Goals \u2014 Finish What Was Started",
+  "title": "Complete Option B: Structured Goals — Finish What Was Started",
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
-  "created": "2026-03-02",
-  "updated": "2026-03-02",
-  "completed": "2026-03-02",
+  "created": "2026-03-02T00:00:00Z",
+  "updated": "2026-03-02T00:00:00Z",
+  "completed": "2026-03-02T00:00:00Z",
   "triage": {
     "action": "update_existing",
     "goal_id": "data-model",

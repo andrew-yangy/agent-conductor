@@ -1,0 +1,32 @@
+{
+  "id": "skill-md-restructure",
+  "title": "Restructure directive SKILL.md into routing map + modular docs",
+  "status": "pending",
+  "source": "ceo",
+  "weight": "strategic",
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
+  "completed": null,
+  "triage": {
+    "action": "execute_project",
+    "goal_id": "workflow-orchestration",
+    "project_id": "skill-md-restructure",
+    "task_ids": [],
+    "secondary_goal_ids": [],
+    "rationale": "P0 enabler — every harness engineering project depends on SKILL.md being modular",
+    "requires_ceo_approval": false
+  },
+  "plan": null,
+  "phases": null,
+  "cast": null,
+  "dod": [
+    "SKILL.md is <150 lines with only routing logic",
+    "Every step exists in exactly one docs/pipeline/*.md file",
+    "All schemas/templates/rules in docs/reference/*.md",
+    "End-to-end directive execution works with new structure",
+    "Zero content loss",
+    "Alex spawn prompt updated"
+  ],
+  "report_summary": null,
+  "telemetry": null
+}

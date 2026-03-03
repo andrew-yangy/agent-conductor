@@ -1,11 +1,11 @@
 {
   "id": "data-model",
   "title": "Data Model — Context Tree Structure & Entity Schemas",
-  "status": "active",
+  "status": "in_progress",
   "category": "framework",
   "description": "Define and maintain the context tree structure, entity schemas (goals, projects, tasks, directives, backlogs), and relationships between entities. The foundation that all other conductor components read and write.",
-  "created": "2026-03-03",
-  "updated": "2026-03-03",
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
   "kpis": [],
   "okrs": []
 }

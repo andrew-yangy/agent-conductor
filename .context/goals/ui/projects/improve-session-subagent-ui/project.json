@@ -7,12 +7,27 @@
   "description": "Improve how sessions and sub-agent status are displayed in the conductor dashboard. Better status propagation, clearer hierarchy, and real-time updates.",
   "source_directive": "improve-session-subagent-ui",
   "scope": {
-    "in": ["Session status display components", "Sub-agent hierarchy visualization", "Real-time status updates via WebSocket"],
-    "out": ["Server-side session discovery (already works)", "Terminal integration"]
+    "in": [
+      "Session status display components",
+      "Sub-agent hierarchy visualization",
+      "Real-time status updates via WebSocket"
+    ],
+    "out": [
+      "Server-side session discovery (already works)",
+      "Terminal integration"
+    ]
   },
   "dod": [
-    { "criterion": "Session cards show real-time status (running, idle, needs-you) with sub-agent tree", "met": false, "verified_by": [] },
-    { "criterion": "Sub-agent status propagates to parent session within 2 seconds", "met": false, "verified_by": [] }
+    {
+      "criterion": "Session cards show real-time status (running, idle, needs-you) with sub-agent tree",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Sub-agent status propagates to parent session within 2 seconds",
+      "met": false,
+      "verified_by": []
+    }
   ],
   "verify": {
     "checklist": [
@@ -21,13 +36,16 @@
       "Kill a sub-agent — parent session status updates within 2s"
     ],
     "reviewers": [
-      { "agent": "marcus", "domain": "ux — CEO dashboard experience, status clarity" }
+      {
+        "agent": "marcus",
+        "domain": "ux — CEO dashboard experience, status clarity"
+      }
     ],
     "browser_test": true
   },
   "tags": [],
   "tasks": [],
-  "created": "2026-03-02",
-  "updated": "2026-03-02",
+  "created": "2026-03-02T00:00:00Z",
+  "updated": "2026-03-02T00:00:00Z",
   "completed": null
 }

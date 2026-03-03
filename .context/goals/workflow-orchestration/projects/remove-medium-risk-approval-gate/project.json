@@ -1,0 +1,128 @@
+{
+  "id": "remove-medium-risk-approval-gate",
+  "title": "Auto-execute medium-risk follow-ups with revert commands in digest",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p1",
+  "sequence": 4,
+  "depends_on_project": "workflow-orchestration/skill-md-restructure",
+  "description": "Medium-risk follow-up actions currently require CEO batch-approval via AskUserQuestion. This slows directive completion without meaningful safety gain. Change to: auto-execute medium-risk, include git revert commands in the digest so CEO can undo if needed. CEO decision: remove immediately, no probation period.",
+  "source_directive": "harness-engineering-adoption",
+  "scope": {
+    "in": [
+      "Change medium-risk follow-up handling from batch-approval to auto-execute + report",
+      "Generate git revert commands for each auto-executed medium-risk action",
+      "Add Revert Commands section to digest template",
+      "Update risk classification docs to reflect new authority levels"
+    ],
+    "out": [
+      "Changing high-risk handling (stays manual)",
+      "Changing low-risk handling (already auto-execute)",
+      "Dashboard changes"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "Medium-risk follow-ups auto-execute without CEO approval gate",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Digest includes revert commands for every auto-executed medium-risk action",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Revert commands are copy-pasteable and actually work",
+      "met": false,
+      "verified_by": []
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "Run directive with medium-risk follow-up \u2014 confirm no approval prompt",
+      "Check digest output \u2014 confirm revert commands section exists",
+      "Test a revert command \u2014 confirm it actually reverts the change"
+    ],
+    "reviewers": [
+      {
+        "agent": "morgan",
+        "domain": "process \u2014 risk implications, digest clarity"
+      }
+    ],
+    "browser_test": false
+  },
+  "tags": [
+    "harness-engineering",
+    "autonomy",
+    "quick-win"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Update follow-up handling in pipeline step docs: medium-risk \u2192 auto-execute",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t2",
+      "title": "Add revert command generation to follow-up execution logic",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t3",
+      "title": "Update digest template with Revert Commands section",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t4",
+      "title": "Smoke test: run directive with medium-risk follow-up, verify auto-execute + revert",
+      "status": "pending",
+      "phase": "test",
+      "agent": [],
+      "depends_on": [
+        "t2",
+        "t3"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    }
+  ],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "completed": null
+}

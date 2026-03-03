@@ -9,8 +9,8 @@
     "source_detail": "optimize-conductor-workflows directive",
     "trigger": "When an audit reveals Morgan's plan is fundamentally wrong (next occurrence where audit contradicts plan)",
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "async-parallel-initiatives",
@@ -22,8 +22,8 @@
     "source_detail": "optimize-conductor-workflows directive",
     "trigger": "When sequential execution becomes the bottleneck (directive takes >2 hours with 3+ independent initiatives)",
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "tree-search-for-strategy-exploration",
@@ -35,8 +35,8 @@
     "source_detail": "optimize-conductor-workflows directive",
     "trigger": "When Morgan's single-plan approach fails twice (plan fundamentally wrong after audit)",
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "a2a-protocol-support",
@@ -48,8 +48,8 @@
     "source_detail": null,
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "community-personality-packs",
@@ -61,8 +61,8 @@
     "source_detail": null,
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "automatic-autonomy-adjustment",
@@ -74,8 +74,8 @@
     "source_detail": null,
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "engineer-proposals",
@@ -87,8 +87,8 @@
     "source_detail": null,
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "dod-amendments-during-clarification",
@@ -100,8 +100,8 @@
     "source_detail": "conductor-review-quality",
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "dod-effectiveness-tracking",
@@ -113,8 +113,8 @@
     "source_detail": "conductor-review-quality",
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "correction-add-command",
@@ -126,8 +126,8 @@
     "source_detail": "conductor-review-quality",
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   },
   {
     "id": "elevate-prisma-migration-correction",
@@ -139,7 +139,7 @@
     "source_detail": "marcus suggestion",
     "trigger": null,
     "promoted_to": null,
-    "created": "2026-03-02",
-    "updated": "2026-03-03"
+    "created": "2026-03-02T00:00:00Z",
+    "updated": "2026-03-03T00:00:00Z"
   }
 ]

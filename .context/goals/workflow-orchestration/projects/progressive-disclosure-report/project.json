@@ -1,0 +1,143 @@
+{
+  "id": "progressive-disclosure-report",
+  "title": "Progressive disclosure /report \u2014 3-tier CEO dashboard",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p1",
+  "sequence": 5,
+  "depends_on_project": "workflow-orchestration/skill-md-restructure",
+  "description": "The /report skill currently dumps everything at one level. Restructure into 3 tiers: (1) Headline \u2014 5-line status (what shipped, what's blocked, what needs CEO), (2) Summary \u2014 per-goal progress and recommendations (current daily mode), (3) Deep dive \u2014 full initiative details and agent performance (current weekly mode). Headline is the default. CEO drills down with /report summary or /report deep.",
+  "source_directive": "harness-engineering-adoption",
+  "scope": {
+    "in": [
+      "Restructure /report SKILL.md into 3 tiers: headline (default), summary, deep",
+      "Headline tier: 5 lines max \u2014 shipped count, blocked count, needs-CEO count, top recommendation, health status",
+      "Summary tier: current daily mode output",
+      "Deep tier: current weekly mode output",
+      "CLI argument parsing: /report (headline), /report summary, /report deep, /report weekly (alias for deep)"
+    ],
+    "out": [
+      "Dashboard UI changes",
+      "New data collection or metrics",
+      "Changing what data /report reads",
+      "Report scheduling changes"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "/report with no args produces a 5-line headline",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "/report summary produces current daily-mode output",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "/report deep produces current weekly-mode output",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Headline tier is readable and actionable in <10 seconds",
+      "met": false,
+      "verified_by": []
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "Run /report \u2014 confirm headline output is <6 lines",
+      "Run /report summary \u2014 confirm it matches current daily mode",
+      "Run /report deep \u2014 confirm it matches current weekly mode",
+      "Have Marcus review headline tier for CEO-readability"
+    ],
+    "reviewers": [
+      {
+        "agent": "marcus",
+        "domain": "product \u2014 is the headline useful? Does progressive disclosure feel natural?"
+      },
+      {
+        "agent": "morgan",
+        "domain": "process \u2014 do tiers contain the right information at the right level?"
+      }
+    ],
+    "browser_test": false
+  },
+  "tags": [
+    "harness-engineering",
+    "ceo-experience",
+    "progressive-disclosure"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Design 3-tier structure \u2014 what goes in each tier, argument parsing",
+      "status": "pending",
+      "phase": "design",
+      "agent": [
+        "marcus",
+        "morgan"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t2",
+      "title": "Build headline tier \u2014 extract top-level signals from existing report data",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t3",
+      "title": "Refactor /report SKILL.md \u2014 add argument routing, map daily\u2192summary and weekly\u2192deep",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t4",
+      "title": "Test all three tiers and verify backward compatibility with /report daily and /report weekly",
+      "status": "pending",
+      "phase": "test",
+      "agent": [],
+      "depends_on": [
+        "t2",
+        "t3"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    }
+  ],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "completed": null
+}

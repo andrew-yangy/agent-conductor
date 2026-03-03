@@ -51,8 +51,8 @@ function typeIcon(type: string) {
 
 function statusBadge(status: string) {
   const colorMap: Record<string, string> = {
-    'in-progress': 'bg-status-yellow/15 text-status-yellow border-status-yellow/30',
-    'done': 'bg-status-green/15 text-status-green border-status-green/30',
+    'in_progress': 'bg-status-yellow/15 text-status-yellow border-status-yellow/30',
+    'completed': 'bg-status-green/15 text-status-green border-status-green/30',
     'blocked': 'bg-status-red/15 text-status-red border-status-red/30',
     'pending': 'bg-secondary text-muted-foreground border-border',
     'deferred': 'bg-secondary text-muted-foreground border-border',
@@ -127,7 +127,7 @@ export default function SearchCommandPalette() {
   // Get active features for default state
   const activeFeatures = useMemo(() => {
     return (workState?.features?.features ?? []).filter(
-      (f: FeatureRecord) => f.status === 'in-progress' || f.status === 'pending'
+      (f: FeatureRecord) => f.status === 'in_progress' || f.status === 'pending'
     ).slice(0, 5);
   }, [workState?.features]);
 

@@ -1,0 +1,14 @@
+{
+  "id": "improve-agent-productivity",
+  "title": "Improve Agent Productivity — Reduce Overhead, Enable Parallelism, SDK Migration",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p0",
+  "description": "Strategic initiative to improve agent orchestration productivity. Phased approach: (1) reduce Alex's scope with named subagents, (2) enable parallel execution, (3) optimize token usage, (4) migrate to Claude Agent SDK deterministic orchestration. Awaiting CEO approval.",
+  "source_directive": "improve-agent-productivity",
+  "tags": ["orchestration", "agent-sdk", "performance", "strategic"],
+  "tasks": [],
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
+  "completed": null
+}

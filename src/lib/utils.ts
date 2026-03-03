@@ -33,22 +33,22 @@ export function statusColor(status: string): string {
   switch (status) {
     case 'working':
       return 'text-status-green';
-    case 'done':
     case 'completed':
       return 'text-status-done';
     case 'waiting-approval':
     case 'waiting-input':
-    case 'in-progress':
     case 'in_progress':
     case 'review':
       return 'text-status-yellow';
     case 'error':
     case 'stopped':
+    case 'blocked':
       return 'text-status-red';
     case 'paused':
     case 'idle':
-    case 'not-started':
+    case 'not_started':
     case 'pending':
+    case 'deferred':
       return 'text-status-gray';
     default:
       return 'text-text-muted';
@@ -59,22 +59,22 @@ export function statusBgColor(status: string): string {
   switch (status) {
     case 'working':
       return 'bg-status-green';
-    case 'done':
     case 'completed':
       return 'bg-status-done';
     case 'waiting-approval':
     case 'waiting-input':
-    case 'in-progress':
     case 'in_progress':
     case 'review':
       return 'bg-status-yellow';
     case 'error':
     case 'stopped':
+    case 'blocked':
       return 'bg-status-red';
     case 'paused':
     case 'idle':
-    case 'not-started':
+    case 'not_started':
     case 'pending':
+    case 'deferred':
       return 'bg-status-gray';
     default:
       return 'bg-status-gray';

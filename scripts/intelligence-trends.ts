@@ -268,7 +268,7 @@ export function analyzeIntelligence(projectPaths: string[]): IntelligenceTrendsR
 
   // Gather intelligence from all configured project paths
   for (const projectPath of projectPaths) {
-    const intelDir = path.join(projectPath, '.context', 'conductor', 'intelligence');
+    const intelDir = path.join(projectPath, '.context', 'intel');
     const latestDir = path.join(intelDir, 'latest');
 
     if (fs.existsSync(latestDir)) {
@@ -309,7 +309,8 @@ export function analyzeIntelligence(projectPaths: string[]): IntelligenceTrendsR
     }
 
     // Read proposals log
-    const proposalsPath = path.join(projectPath, '.context', 'conductor', 'proposals.log');
+    // proposals.log may live in .context/ or in intel/
+    const proposalsPath = path.join(projectPath, '.context', 'intel', 'proposals.log');
     const parsed = parseProposalsLog(proposalsPath);
     proposalEntries = [...proposalEntries, ...parsed];
   }

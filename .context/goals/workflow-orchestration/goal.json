@@ -1,11 +1,11 @@
 {
   "id": "workflow-orchestration",
   "title": "Workflow Orchestration — Directive Pipeline, Skills, Agent Casting",
-  "status": "active",
+  "status": "in_progress",
   "category": "framework",
   "description": "The directive execution pipeline, skill definitions, agent casting logic, checkpoint/resume, telemetry, and review quality. Everything about HOW work gets planned, executed, and verified.",
-  "created": "2026-03-03",
-  "updated": "2026-03-03",
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
   "kpis": [],
   "okrs": []
 }

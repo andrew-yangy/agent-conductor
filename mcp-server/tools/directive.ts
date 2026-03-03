@@ -1,8 +1,17 @@
 import fs from 'node:fs';
-import { conductorPath, readTextSafe, getProjectPath } from './paths.js';
+import path from 'node:path';
+import { getProjectPath, readJsonSafe, readTextSafe } from './paths.js';
 
-// Skip markers — directives containing these should not be auto-launched
+// Skip markers -- directives containing these should not be auto-launched
 const SKIP_MARKERS = ['<!-- foreman:skip -->', '**Requires**: manual', 'DEFERRED', '**Status**: deferred', '**Status**: needs-human'];
+
+interface DirectiveJson {
+  id: string;
+  title: string;
+  status: string;
+  created?: string;
+  weight?: string;
+}
 
 function isSkipped(content: string | null | undefined): boolean {
   if (!content) return false;
@@ -10,44 +19,70 @@ function isSkipped(content: string | null | undefined): boolean {
 }
 
 /**
- * List available directives in inbox/.
+ * List available directives from .context/directives/*.json.
  */
 export function listDirectives(): string {
-  const inboxDir = conductorPath('inbox');
-  if (!fs.existsSync(inboxDir)) {
-    return 'No inbox directory found at ' + inboxDir;
+  const projectPath = getProjectPath();
+  const directivesDir = path.join(projectPath, '.context', 'directives');
+
+  if (!fs.existsSync(directivesDir)) {
+    return 'No directives directory found at ' + directivesDir;
   }
 
-  const files = fs.readdirSync(inboxDir).filter((f) => f.endsWith('.md'));
-  if (files.length === 0) {
-    return 'Inbox is empty. No pending directives.';
+  const jsonFiles = fs.readdirSync(directivesDir).filter(f => {
+    if (!f.endsWith('.json')) return false;
+    try { return fs.statSync(path.join(directivesDir, f)).isFile(); } catch { return false; }
+  });
+
+  if (jsonFiles.length === 0) {
+    return 'No directives found. Directory is empty.';
   }
 
   const ready: string[] = [];
+  const completed: string[] = [];
   const skipped: string[] = [];
 
-  for (const file of files) {
-    const name = file.replace('.md', '');
-    const content = readTextSafe(conductorPath('inbox', file));
-    const firstLine = content
-      ?.split('\n')
-      .find((l) => l.startsWith('# '))
-      ?.replace('# ', '');
+  for (const file of jsonFiles) {
+    const filePath = path.join(directivesDir, file);
+    const dirJson = readJsonSafe<DirectiveJson>(filePath);
+    if (!dirJson) continue;
 
-    if (isSkipped(content)) {
-      skipped.push(`- ~~${name}~~: ${firstLine ?? '(no title)'} *(deferred/manual)*`);
+    const name = file.replace('.json', '');
+    const title = dirJson.title ?? name;
+    const status = dirJson.status ?? 'pending';
+
+    // Check the companion .md file for skip markers
+    const mdPath = path.join(directivesDir, `${name}.md`);
+    const mdContent = readTextSafe(mdPath);
+
+    if (status === 'completed' || status === 'done') {
+      completed.push(`- ~~${name}~~: ${title} *(completed)*`);
+    } else if (isSkipped(mdContent)) {
+      skipped.push(`- ~~${name}~~: ${title} *(deferred/manual)*`);
+    } else if (status === 'pending' || status === 'triaged') {
+      ready.push(`- **${name}**: ${title}`);
     } else {
-      ready.push(`- **${name}**: ${firstLine ?? '(no title)'}`);
+      // executing or other active status
+      ready.push(`- **${name}**: ${title} *(${status})*`);
     }
   }
 
   const lines: string[] = [];
-  lines.push(`## Pending Directives (${ready.length} ready, ${skipped.length} skipped)`);
+  lines.push(`## Directives (${ready.length} active/ready, ${completed.length} completed, ${skipped.length} skipped)`);
   lines.push('');
 
   if (ready.length > 0) {
-    lines.push('### Ready to Launch');
+    lines.push('### Ready / Active');
     lines.push(...ready);
+    lines.push('');
+  }
+
+  if (completed.length > 0) {
+    lines.push(`### Completed (${completed.length})`);
+    lines.push(...completed.slice(0, 10));
+    if (completed.length > 10) {
+      lines.push(`- ...and ${completed.length - 10} more`);
+    }
     lines.push('');
   }
 
@@ -65,42 +100,39 @@ export function listDirectives(): string {
  * Does NOT actually spawn a process (that would require the Claude CLI installed).
  */
 export function launchDirective(directiveName: string): string {
-  const inboxDir = conductorPath('inbox');
-  const fileName = directiveName.endsWith('.md')
-    ? directiveName
-    : directiveName + '.md';
-  const filePath = conductorPath('inbox', fileName);
+  const projectPath = getProjectPath();
+  const directivesDir = path.join(projectPath, '.context', 'directives');
 
-  if (!fs.existsSync(filePath)) {
-    const available = fs.existsSync(inboxDir)
-      ? fs
-          .readdirSync(inboxDir)
-          .filter((f) => f.endsWith('.md'))
-          .map((f) => f.replace('.md', ''))
+  const jsonPath = path.join(directivesDir, `${directiveName}.json`);
+  const mdPath = path.join(directivesDir, `${directiveName}.md`);
+
+  if (!fs.existsSync(jsonPath) && !fs.existsSync(mdPath)) {
+    const available = fs.existsSync(directivesDir)
+      ? fs.readdirSync(directivesDir)
+          .filter(f => f.endsWith('.json'))
+          .map(f => f.replace('.json', ''))
       : [];
-    return `Directive "${directiveName}" not found in inbox. Available: ${available.join(', ') || 'none'}`;
+    return `Directive "${directiveName}" not found in .context/directives/. Available: ${available.join(', ') || 'none'}`;
   }
 
-  const content = readTextSafe(filePath);
+  const dirJson = readJsonSafe<DirectiveJson>(jsonPath);
+  const mdContent = readTextSafe(mdPath);
 
   // Warn if this directive has skip markers
-  if (isSkipped(content)) {
+  if (isSkipped(mdContent)) {
     const reasons: string[] = [];
-    if (content?.includes('<!-- foreman:skip -->')) reasons.push('foreman:skip marker');
-    if (content?.includes('**Requires**: manual')) reasons.push('requires manual execution');
-    if (content?.includes('DEFERRED')) reasons.push('deferred');
-    if (content?.includes('**Status**: deferred')) reasons.push('status: deferred');
-    if (content?.includes('**Status**: needs-human')) reasons.push('needs human');
+    if (mdContent?.includes('<!-- foreman:skip -->')) reasons.push('foreman:skip marker');
+    if (mdContent?.includes('**Requires**: manual')) reasons.push('requires manual execution');
+    if (mdContent?.includes('DEFERRED')) reasons.push('deferred');
+    if (mdContent?.includes('**Status**: deferred')) reasons.push('status: deferred');
+    if (mdContent?.includes('**Status**: needs-human')) reasons.push('needs human');
     return `**Warning**: Directive "${directiveName}" is marked as skipped (${reasons.join(', ')}). It should not be auto-launched. Review the directive and remove skip markers if you want to proceed.`;
   }
 
-  const title =
-    content
-      ?.split('\n')
-      .find((l) => l.startsWith('# '))
-      ?.replace('# ', '') ?? directiveName;
-
-  const projectPath = getProjectPath();
+  const title = dirJson?.title ?? mdContent
+    ?.split('\n')
+    .find(l => l.startsWith('# '))
+    ?.replace('# ', '') ?? directiveName;
 
   // Build the launch command
   const command = `cd ${projectPath} && claude -p "/directive ${directiveName}"`;
@@ -109,18 +141,26 @@ export function launchDirective(directiveName: string): string {
   lines.push(`## Ready to Launch: ${title}`);
   lines.push('');
   lines.push(`**Directive**: ${directiveName}`);
-  lines.push(`**File**: ${filePath}`);
-  lines.push('');
-  lines.push('### Preview');
-  // Show first 20 lines of the directive
-  const preview = content?.split('\n').slice(0, 20).join('\n') ?? '';
-  lines.push('```');
-  lines.push(preview);
-  if ((content?.split('\n').length ?? 0) > 20) {
-    lines.push('... (truncated)');
+  if (dirJson) {
+    lines.push(`**Status**: ${dirJson.status}`);
+    if (dirJson.weight) lines.push(`**Weight**: ${dirJson.weight}`);
   }
-  lines.push('```');
+  lines.push(`**JSON**: ${jsonPath}`);
+  if (mdContent) lines.push(`**Brief**: ${mdPath}`);
   lines.push('');
+
+  if (mdContent) {
+    lines.push('### Preview');
+    const preview = mdContent.split('\n').slice(0, 20).join('\n');
+    lines.push('```');
+    lines.push(preview);
+    if ((mdContent.split('\n').length) > 20) {
+      lines.push('... (truncated)');
+    }
+    lines.push('```');
+    lines.push('');
+  }
+
   lines.push('### Launch Command');
   lines.push('```bash');
   lines.push(command);

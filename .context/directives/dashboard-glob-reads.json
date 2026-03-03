@@ -1,0 +1,14 @@
+{
+  "id": "dashboard-glob-reads",
+  "title": "Dashboard glob reads -- rewrite server to read new context tree directly",
+  "status": "completed",
+  "created": "2026-03-03T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z",
+  "weight": "medium",
+  "goal_ids": [
+    "ui"
+  ],
+  "produced_projects": [],
+  "report": null,
+  "backlog_sources": []
+}

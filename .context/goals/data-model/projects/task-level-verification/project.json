@@ -1,0 +1,36 @@
+{
+  "id": "task-level-verification",
+  "title": "Add verification fields to task schema",
+  "goal_id": "data-model",
+  "status": "completed",
+  "priority": "p1",
+  "description": "Added acceptance_criteria, verified_by, and review_outcome fields to the Task schema. Tasks now support mini-DOD (acceptance_criteria), reviewer attribution (verified_by), and review results (review_outcome). Also fixed agent: [] on completed tasks — agent must always be populated. Backfilled 598 tasks across both repos.",
+  "scope": {
+    "in": ["SPEC.md task schema (Section 2.3)", "All project.json task arrays in both repos", "SKILL.md Register Projects step"],
+    "out": ["Frontend/dashboard changes (tasks not rendered individually yet)", "Server watcher changes (watchers don't parse task-level fields)"]
+  },
+  "dod": [
+    { "criterion": "SPEC.md task schema includes acceptance_criteria, verified_by, review_outcome", "met": true, "verified_by": ["self"] },
+    { "criterion": "All existing project.json tasks have the new fields", "met": true, "verified_by": ["self"] },
+    { "criterion": "No completed tasks have agent: []", "met": true, "verified_by": ["self"] },
+    { "criterion": "SKILL.md Register Projects instructs pipeline to populate task verification fields", "met": true, "verified_by": ["self"] },
+    { "criterion": "Type-check passes", "met": true, "verified_by": ["self"] }
+  ],
+  "verify": {
+    "checklist": [
+      "grep for agent.*\\[\\] in completed tasks returns 0",
+      "All project.json files parse as valid JSON"
+    ],
+    "reviewers": [],
+    "browser_test": false
+  },
+  "tasks": [
+    { "id": "t1", "title": "Update SPEC.md task schema with verification fields", "status": "completed", "phase": "build", "agent": ["self"], "depends_on": [], "acceptance_criteria": ["acceptance_criteria, verified_by, review_outcome added to schema", "Required/optional field lists updated", "Constraints section documents when fields must be populated"], "verified_by": ["self"], "review_outcome": "pass", "output": "Added 3 new fields to Section 2.3, updated constraints to mandate agent+verified_by+review_outcome on completed tasks.", "created": "2026-03-03T00:00:00Z", "completed": "2026-03-03T00:00:00Z" },
+    { "id": "t2", "title": "Backfill existing project.json tasks with new fields", "status": "completed", "phase": "build", "agent": ["self"], "depends_on": ["t1"], "acceptance_criteria": ["All tasks in agent-conductor have the 3 new fields", "All tasks in sw have the 3 new fields", "Completed tasks infer verified_by from project reviewers", "All JSON validates"], "verified_by": ["self"], "review_outcome": "pass", "output": "62 files updated, 598 tasks backfilled across both repos. Completed tasks in completed projects get review_outcome: pass and verified_by inferred from project-level reviewers.", "created": "2026-03-03T00:00:00Z", "completed": "2026-03-03T00:00:00Z" },
+    { "id": "t3", "title": "Fix empty agent arrays on completed tasks", "status": "completed", "phase": "build", "agent": ["self"], "depends_on": ["t2"], "acceptance_criteria": ["Zero completed tasks with agent: []", "Empty agents replaced with [\"self\"] for CEO-session work"], "verified_by": ["self"], "review_outcome": "pass", "output": "455 tasks fixed (10 in agent-conductor, 445 in sw). All completed tasks now have agent attribution.", "created": "2026-03-03T00:00:00Z", "completed": "2026-03-03T00:00:00Z" },
+    { "id": "t4", "title": "Update SKILL.md to populate task-level verification", "status": "completed", "phase": "build", "agent": ["self"], "depends_on": ["t1"], "acceptance_criteria": ["Register Projects step lists agent, acceptance_criteria, verified_by, review_outcome as mandatory task fields"], "verified_by": ["self"], "review_outcome": "pass", "output": "Updated Register Projects section to require all 4 fields on tasks, with instructions on where to source each field from.", "created": "2026-03-03T00:00:00Z", "completed": "2026-03-03T00:00:00Z" }
+  ],
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z"
+}

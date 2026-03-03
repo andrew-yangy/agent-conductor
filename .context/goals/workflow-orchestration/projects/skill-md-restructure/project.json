@@ -1,0 +1,202 @@
+{
+  "id": "skill-md-restructure",
+  "title": "Restructure directive SKILL.md into routing map + modular docs",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p0",
+  "sequence": 1,
+  "depends_on_project": null,
+  "description": "The directive SKILL.md is 1389 lines / 75KB \u2014 a monolith that fills agent context windows. Split it into a ~120-line routing map (step labels + one-line descriptions + file references) and modular docs under docs/pipeline/ (one file per step or step-group) and docs/reference/ (schemas, templates, rules). The routing map is what agents load; they pull in step docs on-demand. This is the enabling project \u2014 every other harness initiative depends on SKILL.md being navigable and modular.",
+  "source_directive": "harness-engineering-adoption",
+  "scope": {
+    "in": [
+      "Split SKILL.md into routing map + docs/pipeline/*.md + docs/reference/*.md",
+      "Routing map: step ID, one-line purpose, file path, conditional logic",
+      "Pipeline docs: one file per step or logical step-group",
+      "Reference docs: schemas (Morgan plan JSON, reviewer JSON, checkpoint JSON), templates (digest, approval), rules (ALWAYS rules, failure handling)",
+      "Verify agents can still execute directives end-to-end after restructure",
+      "Update Alex spawn prompt to reference routing map instead of inlining full SKILL.md"
+    ],
+    "out": [
+      "Changing pipeline logic or step ordering",
+      "Adding new steps or features",
+      "Modifying agent personality files",
+      "Dashboard changes"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "SKILL.md is <150 lines and contains only routing logic + file references",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Every step from the original SKILL.md exists in exactly one docs/pipeline/*.md file",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "All JSON schemas, templates, and rules are in docs/reference/*.md files",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "A directive can be executed end-to-end using the new structure (manual smoke test)",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "No content is lost \u2014 diff of concatenated new files vs original SKILL.md shows only structural changes",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Alex spawn prompt references routing map, not inlined SKILL.md",
+      "met": false,
+      "verified_by": []
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "wc -l on SKILL.md shows <150 lines",
+      "ls docs/pipeline/ shows files covering all steps (0a through 7 + failure handling)",
+      "ls docs/reference/ shows schema, template, and rules files",
+      "Run a lightweight directive end-to-end and confirm it completes",
+      "grep for every ## Step heading from original \u2014 each must appear in exactly one pipeline doc"
+    ],
+    "reviewers": [
+      {
+        "agent": "sarah",
+        "domain": "architecture \u2014 no content lost, file references resolve, agent context savings achieved"
+      },
+      {
+        "agent": "morgan",
+        "domain": "process \u2014 routing map is navigable, step ordering preserved, conditional logic clear"
+      }
+    ],
+    "browser_test": false
+  },
+  "tags": [
+    "harness-engineering",
+    "skill-architecture",
+    "enabler"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Inventory SKILL.md sections and map to target file structure",
+      "status": "pending",
+      "phase": "design",
+      "agent": [],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t2",
+      "title": "Create docs/pipeline/ files \u2014 extract each step into its own doc",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t3",
+      "title": "Create docs/reference/ files \u2014 extract schemas, templates, rules",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t4",
+      "title": "Rewrite SKILL.md as routing map with step IDs and file references",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t2",
+        "t3"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t5",
+      "title": "Update Alex spawn prompt to reference routing map instead of inlined SKILL.md",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t4"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t6",
+      "title": "Content-loss audit \u2014 diff concatenated new files vs original SKILL.md",
+      "status": "pending",
+      "phase": "test",
+      "agent": [
+        "sarah"
+      ],
+      "depends_on": [
+        "t4"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t7",
+      "title": "Smoke test \u2014 run a lightweight directive end-to-end with new structure",
+      "status": "pending",
+      "phase": "test",
+      "agent": [],
+      "depends_on": [
+        "t5"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    }
+  ],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "completed": null
+}

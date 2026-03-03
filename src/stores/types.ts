@@ -108,7 +108,7 @@ export interface DirectiveInitiative {
 
 export interface DirectiveState {
   directiveName: string;
-  status: 'executing' | 'completed' | 'failed';
+  status: 'in_progress' | 'completed' | 'failed';
   totalInitiatives: number;
   currentInitiative: number;
   currentPhase: string;
@@ -125,7 +125,7 @@ export interface GoalInventory {
 export interface GoalArea {
   id: string;
   title: string;
-  status: 'in_progress' | 'not_started' | 'done';
+  status: 'in_progress' | 'not_started' | 'completed';
   has_goal_md: boolean;
   has_backlog: boolean;
   has_okrs: boolean;
@@ -140,7 +140,7 @@ export interface ActiveFeature {
   tasks_completed: number;
   tasks_total: number;
   completion_pct: number;
-  status: 'in_progress' | 'completed' | 'not_started';
+  status: 'in_progress' | 'not_started' | 'completed';
 }
 
 export interface DashboardState {
@@ -230,7 +230,7 @@ export interface WsMessage {
 // ---------------------------------------------------------------------------
 
 export type WorkItemType = 'goal' | 'feature' | 'task' | 'backlog-item' | 'directive' | 'report' | 'discussion' | 'research';
-export type LifecycleState = 'pending' | 'in-progress' | 'blocked' | 'deferred' | 'done' | 'abandoned';
+export type LifecycleState = 'pending' | 'in_progress' | 'blocked' | 'deferred' | 'completed' | 'abandoned';
 export type Priority = 'P0' | 'P1' | 'P2';
 
 export interface BaseWorkItem {
@@ -248,13 +248,17 @@ export interface BaseWorkItem {
 export interface GoalRecord extends BaseWorkItem {
   type: 'goal';
   description?: string;
+  category?: string;
   activeFeatures: string[];
   doneFeatures: string[];
   backlogCount: number;
   hasOkrs: boolean;
   hasGoalMd: boolean;
+  hasGoalJson: boolean;
   hasBacklog: boolean;
   issues?: string[];
+  repoId?: string;
+  repoName?: string;
 }
 
 export interface FeatureRecord extends BaseWorkItem {
@@ -265,6 +269,8 @@ export interface FeatureRecord extends BaseWorkItem {
   hasSpec: boolean;
   hasDesign: boolean;
   specSummary?: string;
+  repoId?: string;
+  repoName?: string;
 }
 
 export interface BacklogRecord extends BaseWorkItem {
@@ -275,6 +281,8 @@ export interface BacklogRecord extends BaseWorkItem {
   trigger?: string;
   sourceContext?: string;
   sourceDirective?: string;
+  repoId?: string;
+  repoName?: string;
 }
 
 export interface ArtifactRecord extends BaseWorkItem {

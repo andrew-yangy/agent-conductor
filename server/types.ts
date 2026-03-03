@@ -87,7 +87,7 @@ export interface DirectiveInitiative {
 
 export interface DirectiveState {
   directiveName: string;
-  status: 'executing' | 'completed' | 'failed';
+  status: 'in_progress' | 'completed' | 'failed';
   totalInitiatives: number;
   currentInitiative: number;
   currentPhase: string;
@@ -138,6 +138,8 @@ export interface DashboardState {
 export interface ProjectConfig {
   name: string;
   path: string;
+  /** Source of this project config: 'config' (from config.json) or 'discovered' (from ~/.claude/projects/) */
+  source?: 'config' | 'discovered';
 }
 
 export interface NotificationConfig {

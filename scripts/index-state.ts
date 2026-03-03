@@ -409,7 +409,9 @@ function mapTaskStatus(status: string): LifecycleState {
 function mapDirectiveStatus(status: string): LifecycleState {
   switch (status) {
     case 'pending': return 'pending';
+    case 'triaged': return 'pending';
     case 'executing': return 'in-progress';
+    case 'completed': return 'done';
     case 'done': return 'done';
     default: return 'pending';
   }
@@ -656,72 +658,30 @@ function parseConductorArtifacts(conductorDir: string): {
   const discussions: ArtifactRecord[] = [];
   const research: ArtifactRecord[] = [];
 
-  // Inbox directives
-  const inboxDir = path.join(conductorDir, 'inbox');
-  for (const file of listFiles(inboxDir, '.md')) {
-    const name = file.replace('.md', '');
-    const filePath = path.join(inboxDir, file);
-    const jsonPath = path.join(inboxDir, `${name}.json`);
+  // Directives -- flat in .context/directives/ (JSON is source of truth, .md is optional brief)
+  const directivesDir = path.join(conductorDir, 'directives');
+  for (const file of listFiles(directivesDir, '.json')) {
+    const name = file.replace('.json', '');
+    const jsonPath = path.join(directivesDir, file);
     const directiveJson = readJson(jsonPath) as DirectiveJsonFile | null;
+    if (!directiveJson) continue;
 
-    const content = readFile(filePath);
-    const title = directiveJson?.title || extractFirstHeading(content) || name;
-    const id = `directive/inbox/${name}`;
-
-    const artifactsDir = path.join(path.dirname(conductorDir), 'artifacts', name);
-    const artifactFiles = dirExists(artifactsDir)
-      ? fs.readdirSync(artifactsDir).filter(f => !f.startsWith('.')).map(f => f.replace(/\.[^.]+$/, ''))
-      : [];
+    const title = directiveJson.title || name;
+    const id = name;
 
     directives.push({
       id,
       type: 'directive',
       title,
-      status: directiveJson ? mapDirectiveStatus(directiveJson.status) : 'pending',
-      createdAt: directiveJson?.created || fileMtime(filePath),
-      updatedAt: fileMtime(filePath),
+      status: mapDirectiveStatus(directiveJson.status),
+      createdAt: directiveJson.created || fileMtime(jsonPath),
+      updatedAt: fileMtime(jsonPath),
       initiatives: [],
-      // Structured fields from directive.json
-      weight: directiveJson?.weight,
-      goalIds: directiveJson?.goal_ids ?? [],
-      producedFeatures: directiveJson?.produced_features ?? [],
-      report: directiveJson?.report ?? null,
-      backlogSources: directiveJson?.backlog_sources ?? [],
-      artifacts: artifactFiles.length > 0 ? artifactFiles : undefined,
-    });
-  }
-
-  // Done directives
-  const doneDir = path.join(conductorDir, 'done');
-  for (const file of listFiles(doneDir, '.md')) {
-    const name = file.replace('.md', '');
-    const filePath = path.join(doneDir, file);
-    const jsonPath = path.join(doneDir, `${name}.json`);
-    const directiveJson = readJson(jsonPath) as DirectiveJsonFile | null;
-
-    const content = readFile(filePath);
-    const title = directiveJson?.title || extractFirstHeading(content) || name;
-    const id = `directive/done/${name}`;
-
-    const artifactsDir = path.join(path.dirname(conductorDir), 'artifacts', name);
-    const artifactFiles = dirExists(artifactsDir)
-      ? fs.readdirSync(artifactsDir).filter(f => !f.startsWith('.')).map(f => f.replace(/\.[^.]+$/, ''))
-      : [];
-
-    directives.push({
-      id,
-      type: 'directive',
-      title,
-      status: directiveJson ? mapDirectiveStatus(directiveJson.status) : 'done',
-      createdAt: directiveJson?.created || fileMtime(filePath),
-      updatedAt: fileMtime(filePath),
-      initiatives: [],
-      weight: directiveJson?.weight,
-      goalIds: directiveJson?.goal_ids ?? [],
-      producedFeatures: directiveJson?.produced_features ?? [],
-      report: directiveJson?.report ?? null,
-      backlogSources: directiveJson?.backlog_sources ?? [],
-      artifacts: artifactFiles.length > 0 ? artifactFiles : undefined,
+      weight: directiveJson.weight,
+      goalIds: directiveJson.goal_ids ?? [],
+      producedFeatures: directiveJson.produced_features ?? [],
+      report: directiveJson.report ?? null,
+      backlogSources: directiveJson.backlog_sources ?? [],
     });
   }
 
@@ -769,8 +729,8 @@ function parseConductorArtifacts(conductorDir: string): {
     });
   }
 
-  // Intelligence (research)
-  const intelDir = path.join(conductorDir, 'intelligence');
+  // Intelligence (research) -- now at .context/intel/
+  const intelDir = path.join(conductorDir, 'intel');
   for (const file of listFiles(intelDir, '.md')) {
     const filePath = path.join(intelDir, file);
     const content = readFile(filePath);
@@ -918,7 +878,7 @@ function printValidationWarnings(
 
 function indexState(contextPath: string): void {
   const goalsDir = path.join(contextPath, 'goals');
-  const conductorDir = path.resolve(__dirname, '../.context');
+  const conductorDir = contextPath;
   const stateDir = path.join(contextPath, 'state');
 
   // Ensure state directory exists

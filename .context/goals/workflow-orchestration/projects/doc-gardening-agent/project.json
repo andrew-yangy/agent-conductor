@@ -1,0 +1,131 @@
+{
+  "id": "doc-gardening-agent",
+  "title": "Event-triggered stale documentation detection",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p1",
+  "sequence": 6,
+  "depends_on_project": "workflow-orchestration/skill-md-restructure",
+  "description": "Docs rot silently. Build an event-triggered staleness detector: when a directive completes, scan docs that reference modified files/systems and flag potentially stale content. This is NOT a new agent or skill \u2014 it's a post-directive hook (Step 6 addition) that outputs 'Potentially Stale Docs' in the digest. Lightweight: grep + timestamp check, not a knowledge graph.",
+  "source_directive": "harness-engineering-adoption",
+  "scope": {
+    "in": [
+      "Post-directive hook: scan .context/ docs that reference files modified in this directive",
+      "Staleness heuristic: doc references files changed in directive but doc hasn't been updated",
+      "Output: 'Potentially Stale Docs' section in digest with file paths and what changed",
+      "Lightweight: grep + git log timestamps, no embeddings or semantic analysis"
+    ],
+    "out": [
+      "Standalone skill or agent",
+      "Automatic doc updates (only detection, not fixing)",
+      "Knowledge graph or embedding-based analysis",
+      "Dashboard integration",
+      "Scheduled runs (only triggered by directive completion)"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "After a directive modifies code, the digest lists docs that reference those files but weren't updated",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Zero false positives on docs that WERE updated in the same directive",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Detection runs in <5 seconds (grep + timestamp, not expensive analysis)",
+      "met": false,
+      "verified_by": []
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "Run directive that modifies a system file \u2014 verify related docs appear in Potentially Stale section",
+      "Run directive that modifies a system file AND updates its docs \u2014 verify no false positive",
+      "Verify detection adds <5s to directive completion time"
+    ],
+    "reviewers": [
+      {
+        "agent": "sarah",
+        "domain": "architecture \u2014 detection accuracy, performance, no over-engineering"
+      }
+    ],
+    "browser_test": false
+  },
+  "tags": [
+    "harness-engineering",
+    "doc-maintenance",
+    "lightweight"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Design staleness detection heuristic \u2014 what counts as 'references', what counts as 'stale'",
+      "status": "pending",
+      "phase": "design",
+      "agent": [
+        "sarah"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t2",
+      "title": "Build detection script \u2014 grep .context/ for file references, compare with git log",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t3",
+      "title": "Integrate into pipeline Step 6 \u2014 add 'Potentially Stale Docs' to digest template",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t2"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t4",
+      "title": "Test with directive that touches system files \u2014 verify detection and no false positives",
+      "status": "pending",
+      "phase": "test",
+      "agent": [],
+      "depends_on": [
+        "t3"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    }
+  ],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "completed": null
+}

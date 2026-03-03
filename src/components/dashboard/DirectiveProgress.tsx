@@ -59,7 +59,7 @@ export default function DirectiveProgress() {
               variant={isFinished ? (status === 'completed' ? 'default' : 'destructive') : 'secondary'}
               className="text-[10px] px-1.5 py-0"
             >
-              {status === 'executing'
+              {status === 'in_progress'
                 ? `${currentInitiative} / ${totalInitiatives}`
                 : status}
             </Badge>

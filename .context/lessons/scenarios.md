@@ -32,11 +32,11 @@
 - **Trigger**: CEO is mid-task on Project A, has an idea for Project B
 - **Goal**: Capture the idea with context, continue Project A, nothing lost.
 - **Critical path**:
-  1. CEO describes the idea naturally ("we should add competitor comparison pages to SellWisely")
-  2. System captures it to the right backlog with enough context to act on later
+  1. CEO describes the idea naturally ("we should add competitor comparison pages")
+  2. System writes it to the right `goals/{goal}/backlog.json` with enough context to act on later
   3. CEO continues current work — no context switch
-  4. Idea appears in next /report or /scout review
-- **Success criteria**: Zero ideas lost. Zero context switches. Idea is actionable when reviewed later.
+  4. Idea appears in next /report or /scout review as a backlog item
+- **Success criteria**: Zero ideas lost. Zero context switches. Idea lands in the correct goal's backlog.json and is actionable when reviewed later.
 
 ## ceo-continuous-execution
 - **Actor**: CEO
@@ -52,38 +52,41 @@
   7. CEO checks in when notified, not constantly
 - **Success criteria**: CEO says "do the backlogs" once. Work happens continuously. CEO reviews outcomes, not process.
 
-## seller-checks-competitors
-- **Actor**: SellWisely user (e-commerce seller)
-- **Trigger**: Seller logs into SellWisely dashboard
-- **Goal**: See how my prices compare to competitors, know where I'm losing and winning.
+## ceo-checks-project-status
+- **Actor**: CEO
+- **Trigger**: CEO wants to know where a specific goal or project stands
+- **Goal**: See goal progress, active projects, pending tasks, and blockers — without reading raw JSON.
 - **Critical path**:
-  1. Seller sees dashboard with their products and competitor prices
-  2. Products are flagged: underpriced, overpriced, competitive
-  3. Seller clicks a product to see price history and competitor detail
-  4. Seller adjusts their price or sets an alert
-- **Success criteria**: Seller knows their competitive position in 60 seconds.
+  1. CEO asks "what's the status of {goal}?" or opens the dashboard
+  2. System reads `goals/{goal}/goal.json` + all `goals/{goal}/projects/*/project.json`
+  3. CEO sees: goal summary, active projects with task completion %, blockers, backlog depth
+  4. CEO can drill into any project to see individual tasks and their status
+  5. CEO decides whether to intervene or let work continue
+- **Success criteria**: CEO knows goal health in 60 seconds. Can identify blockers without reading project.json files manually.
 
-## shopper-finds-deal
-- **Actor**: BuyWisely user (price-conscious shopper)
-- **Trigger**: Shopper searches for a product on BuyWisely
-- **Goal**: Find the cheapest price from a trustworthy retailer.
+## ceo-reviews-scout-proposals
+- **Actor**: CEO
+- **Trigger**: Weekly /scout run produces intelligence and proposals
+- **Goal**: Review what the team found in the outside world, approve or reject proposals, set direction for the week.
 - **Critical path**:
-  1. Shopper searches or lands from Google
-  2. Sees product with price comparison across retailers
-  3. Sees price history — is this a good time to buy?
-  4. Clicks through to retailer to purchase
-  5. Optionally sets a price alert for a target price
-- **Success criteria**: Shopper finds the best price in under 30 seconds. Trusts the data.
+  1. CEO runs /scout or reviews scout output from .context/intel/latest/
+  2. Each C-suite agent's findings are summarized concisely
+  3. Proposals are presented with: what, why, effort, risk
+  4. CEO approves proposals → they become directives in .context/directives/
+  5. Rejected proposals are noted with reasoning for future reference
+- **Success criteria**: CEO reviews external intel and approves/rejects proposals in under 15 minutes. Approved proposals become actionable directives.
 
-## developer-adds-feature
-- **Actor**: Developer (or CEO wearing developer hat)
-- **Trigger**: A feature is planned and spec'd in .context/goals/{goal}/active/{feature}/
-- **Goal**: Build the feature with agent team assistance, verify it works, merge.
+## directive-executes-project
+- **Actor**: The conductor system (Alex + agents)
+- **Trigger**: CEO approves a directive via /directive {name}
+- **Goal**: Execute the directive end-to-end, produce a project with completed tasks, update all state.
 - **Critical path**:
-  1. Developer runs /team-build {feature}
-  2. Agents pick up tasks from tasks.json
-  3. Each agent builds, verifies, marks complete
-  4. Developer reviews changes
-  5. Developer runs /review {feature}
-  6. Merge when satisfied
-- **Success criteria**: Feature built correctly on first pass. Minimal manual intervention.
+  1. Alex reads directive from .context/directives/{name}.md
+  2. Morgan plans initiatives with phases and agent casting
+  3. Auditor scans codebase, produces baseline findings
+  4. CEO approves plan (heavyweight) or Alex auto-approves (medium)
+  5. Engineers execute initiatives — each phase produces artifacts in goals/{goal}/projects/{project}/
+  6. Reviewers verify DOD criteria are met
+  7. project.json is created/updated with tasks, DOD status, and verification results
+  8. directive.json status updated to "completed", digest written to .context/reports/
+- **Success criteria**: Directive produces a completed project with all tasks done, DOD verified, and a clean digest. State is consistent across directive.json, project.json, and reports/.

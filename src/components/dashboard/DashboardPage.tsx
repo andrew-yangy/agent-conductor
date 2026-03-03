@@ -59,7 +59,7 @@ export default function DashboardPage() {
   ).length;
   // Goals marked in-progress but with no features or backlogs (orphan goals)
   const orphanGoals = goals.filter(
-    (g) => g.status === 'in-progress' &&
+    (g) => g.status === 'in_progress' &&
       features.filter(f => f.goalId === g.id).length === 0 &&
       backlogs.filter(b => b.goalId === g.id).length === 0 &&
       (g.issues?.length ?? 0) === 0 // avoid double-counting goals already in goalsWithIssues

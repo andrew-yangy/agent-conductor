@@ -43,7 +43,7 @@ function DirectiveCard({
   directive: DirectiveRecord;
   onReportClick?: (reportPath: string) => void;
 }) {
-  const isPending = directive.status !== 'done';
+  const isPending = directive.status !== 'completed';
   const hasReport = !!(directive.report || directive.reportPath);
   const goalIds = directive.goalIds ?? [];
   const producedFeatures = directive.producedFeatures ?? [];
@@ -120,8 +120,8 @@ export default function DirectivePipeline({
   directives: DirectiveRecord[];
   onReportClick?: (reportPath: string) => void;
 }) {
-  const pending = directives.filter(d => d.status !== 'done');
-  const done = [...directives.filter(d => d.status === 'done')].sort(
+  const pending = directives.filter(d => d.status !== 'completed');
+  const done = [...directives.filter(d => d.status === 'completed')].sort(
     (a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
   );
   const [showDone, setShowDone] = useState(false);

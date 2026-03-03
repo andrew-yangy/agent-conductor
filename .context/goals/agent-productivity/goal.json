@@ -1,0 +1,8 @@
+{
+  "id": "agent-productivity",
+  "title": "Agent Productivity",
+  "status": "active",
+  "category": "framework",
+  "description": "Continuously improve agent orchestration — reduce spawn overhead, enable parallelism, improve error recovery, optimize token usage, thin Alex's scope, and evolve toward deterministic orchestration patterns. CC-native first, SDK migration as future option.",
+  "okrs": []
+}

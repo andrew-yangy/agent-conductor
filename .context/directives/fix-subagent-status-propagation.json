@@ -4,9 +4,9 @@
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
-  "created": "2026-03-03",
-  "updated": "2026-03-03",
-  "completed": "2026-03-03",
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z",
   "triage": {
     "action": "update_existing",
     "goal_id": "ui",

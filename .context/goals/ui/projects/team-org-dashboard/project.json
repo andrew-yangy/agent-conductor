@@ -7,12 +7,27 @@
   "description": "Dashboard page showing the org structure — C-suite agents, their domains, standing responsibilities, and current assignments. Visual team groupings.",
   "source_directive": "team-org-dashboard",
   "scope": {
-    "in": ["New dashboard page for org structure", "Agent card components", "Domain assignment visualization"],
-    "out": ["Agent personality file changes", "Casting logic changes"]
+    "in": [
+      "New dashboard page for org structure",
+      "Agent card components",
+      "Domain assignment visualization"
+    ],
+    "out": [
+      "Agent personality file changes",
+      "Casting logic changes"
+    ]
   },
   "dod": [
-    { "criterion": "Org page shows all C-suite agents with their domains and current assignments", "met": false, "verified_by": [] },
-    { "criterion": "Agent cards are clickable and show agent detail (personality summary, recent directives)", "met": false, "verified_by": [] }
+    {
+      "criterion": "Org page shows all C-suite agents with their domains and current assignments",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Agent cards are clickable and show agent detail (personality summary, recent directives)",
+      "met": false,
+      "verified_by": []
+    }
   ],
   "verify": {
     "checklist": [
@@ -21,13 +36,16 @@
       "Verify domain grouping matches .claude/agents/*.md definitions"
     ],
     "reviewers": [
-      { "agent": "marcus", "domain": "ux — new product page, information architecture" }
+      {
+        "agent": "marcus",
+        "domain": "ux — new product page, information architecture"
+      }
     ],
     "browser_test": true
   },
   "tags": [],
   "tasks": [],
-  "created": "2026-03-02",
-  "updated": "2026-03-02",
+  "created": "2026-03-02T00:00:00Z",
+  "updated": "2026-03-02T00:00:00Z",
   "completed": null
 }

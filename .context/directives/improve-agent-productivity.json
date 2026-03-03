@@ -1,0 +1,12 @@
+{
+  "id": "improve-agent-productivity",
+  "title": "Improve Agent Productivity",
+  "status": "triaged",
+  "created": "2026-03-03",
+  "completed": null,
+  "weight": "strategic",
+  "goal_ids": ["agent-productivity"],
+  "produced_projects": [],
+  "report": null,
+  "backlog_sources": []
+}

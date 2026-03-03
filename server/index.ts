@@ -11,7 +11,6 @@ import { SessionWatcher } from './watchers/session-watcher.js';
 import { DirectiveWatcher } from './watchers/directive-watcher.js';
 import { GoalWatcher } from './watchers/goal-watcher.js';
 import { StateWatcher } from './watchers/state-watcher.js';
-import { ContextWatcher } from './watchers/context-watcher.js';
 import { processEvent } from './hooks/event-receiver.js';
 import { focusPane } from './actions/terminal.js';
 import { sendInput } from './actions/send-input.js';
@@ -66,9 +65,7 @@ goalWatcher.start();
 const stateWatcher = new StateWatcher(aggregator, config);
 stateWatcher.start();
 
-// Watch .context/ source files and auto-run indexer on changes
-const contextWatcher = new ContextWatcher(config);
-contextWatcher.start();
+// ContextWatcher removed — StateWatcher now reads .context/ directly
 
 // Track last event timestamp for health endpoint
 let lastEventTimestamp: string | null = null;
@@ -961,25 +958,41 @@ function foremanCheck(trigger?: string): void {
 }
 
 function findInboxWork(projectPath: string): WorkItem[] {
-  const inboxDir = path.join(projectPath, '.context', 'conductor', 'inbox');
-  if (!fs.existsSync(inboxDir)) return [];
+  const directivesDir = path.join(projectPath, '.context', 'directives');
+  if (!fs.existsSync(directivesDir)) return [];
 
   const items: WorkItem[] = [];
-  for (const file of fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'))) {
-    const filePath = path.join(inboxDir, file);
-    const content = fs.readFileSync(filePath, 'utf-8');
+  for (const file of fs.readdirSync(directivesDir).filter(f => f.endsWith('.json'))) {
+    // Skip checkpoint directories
+    const filePath = path.join(directivesDir, file);
+    try {
+      if (fs.statSync(filePath).isDirectory()) continue;
+    } catch { continue; }
 
-    // Skip items with manual/deferred markers
-    if (SKIP_MARKERS.some(marker => content.includes(marker))) continue;
+    let dirJson: Record<string, unknown>;
+    try {
+      dirJson = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    } catch { continue; }
 
-    const prioMatch = content.match(/\*?\*?Priority\*?\*?:\s*(P[0-2])/i);
-    const priority = prioMatch ? prioMatch[1] : 'P2';
+    // Only consider pending directives
+    if (dirJson.status !== 'pending') continue;
+
+    const name = file.replace('.json', '');
+
+    // Check companion .md for skip markers
+    const mdPath = path.join(directivesDir, `${name}.md`);
+    if (fs.existsSync(mdPath)) {
+      const content = fs.readFileSync(mdPath, 'utf-8');
+      if (SKIP_MARKERS.some(marker => content.includes(marker))) continue;
+    }
+
+    const priority = typeof dirJson.priority === 'string' ? dirJson.priority : 'P2';
 
     items.push({
-      name: file.replace(/\.md$/, ''),
+      name,
       priority,
       source: 'inbox',
-      path: filePath,
+      path: mdPath,
       sortOrder: priorityToOrder(priority),
     });
   }
@@ -997,64 +1010,43 @@ function findBacklogWork(projectPath: string): WorkItem[] {
   });
 
   for (const goalDir of goalDirs) {
-    const backlogPath = path.join(goalsDir, goalDir, 'backlog.md');
+    const backlogPath = path.join(goalsDir, goalDir, 'backlog.json');
     if (!fs.existsSync(backlogPath)) continue;
 
-    const content = fs.readFileSync(backlogPath, 'utf-8');
+    let backlogItems: Array<Record<string, unknown>>;
+    try {
+      const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
+      if (!Array.isArray(raw)) continue;
+      backlogItems = raw;
+    } catch { continue; }
+
     const isPriorityGoal = PRIORITY_GOALS.includes(goalDir);
 
-    // Parse backlog items with triggers
-    let currentTitle = '';
-    let currentPriority = 'P2';
-    let currentTrigger = '';
-    let inItem = false;
-    let isDone = false;
+    for (const bi of backlogItems) {
+      // Skip done/deferred items
+      const status = String(bi.status ?? 'pending');
+      if (status === 'done' || status === 'deferred') continue;
 
-    for (const line of content.split('\n')) {
-      if (line.match(/^###\s+/)) {
-        if (inItem && currentTrigger && !isDone) {
-          const triggerMet = checkTriggerFired(currentTrigger, projectPath);
-          if (triggerMet) {
-            const effectivePriority = isPriorityGoal && currentPriority === 'P2' ? 'P1' : currentPriority;
-            items.push({
-              name: currentTitle,
-              priority: effectivePriority,
-              source: 'backlog',
-              path: backlogPath,
-              goal: goalDir,
-              trigger: currentTrigger,
-              sortOrder: priorityToOrder(effectivePriority) + 0.5, // inbox wins ties
-            });
-          }
-        }
-        currentTitle = line.replace(/^###\s+/, '').replace(/~~(.+?)~~/g, '$1').trim();
-        isDone = line.includes('~~') || line.includes('Done') || line.includes('DEFERRED');
-        currentPriority = 'P2';
-        currentTrigger = '';
-        inItem = true;
-      }
-      if (inItem) {
-        const pm = line.match(/\*?\*?Priority\*?\*?:\s*(P[0-2])/i);
-        if (pm) currentPriority = pm[1];
-        const tm = line.match(/\*?\*?Trigger\*?\*?:\s*(.+)/i);
-        if (tm) currentTrigger = tm[1].trim();
-      }
-    }
-    // Last item
-    if (inItem && currentTrigger && !isDone) {
-      const triggerMet = checkTriggerFired(currentTrigger, projectPath);
-      if (triggerMet) {
-        const effectivePriority = isPriorityGoal && currentPriority === 'P2' ? 'P1' : currentPriority;
-        items.push({
-          name: currentTitle,
-          priority: effectivePriority,
-          source: 'backlog',
-          path: backlogPath,
-          goal: goalDir,
-          trigger: currentTrigger,
-          sortOrder: priorityToOrder(effectivePriority) + 0.5,
-        });
-      }
+      const trigger = bi.trigger ? String(bi.trigger) : '';
+      if (!trigger) continue; // Only items with triggers can be auto-launched
+
+      const triggerMet = checkTriggerFired(trigger, projectPath);
+      if (!triggerMet) continue;
+
+      const title = String(bi.title ?? 'unknown');
+      const rawPriority = String(bi.priority ?? 'P2').toUpperCase();
+      const currentPriority = ['P0', 'P1', 'P2'].includes(rawPriority) ? rawPriority : 'P2';
+      const effectivePriority = isPriorityGoal && currentPriority === 'P2' ? 'P1' : currentPriority;
+
+      items.push({
+        name: title,
+        priority: effectivePriority,
+        source: 'backlog',
+        path: backlogPath,
+        goal: goalDir,
+        trigger,
+        sortOrder: priorityToOrder(effectivePriority) + 0.5, // inbox wins ties
+      });
     }
   }
   return items;
@@ -1065,16 +1057,23 @@ function checkTriggerFired(trigger: string, projectPath: string): boolean {
   if (lower.includes('not fired')) return false;
   if (lower.includes('fired') && !lower.includes('not fired')) return true;
 
-  // Check done-state markers
+  // Check done-state markers by looking at directive.json status
   if (lower.includes('done') || lower.includes('implemented') || lower.includes('complete')) {
-    const doneDir = path.join(projectPath, '.context', 'conductor', 'done');
-    if (fs.existsSync(doneDir)) {
-      const doneFiles = fs.readdirSync(doneDir);
+    const directivesDir = path.join(projectPath, '.context', 'directives');
+    if (fs.existsSync(directivesDir)) {
       const keywords = (lower.match(/\b\w{4,}\b/g) ?? []).filter(
         kw => !['when', 'after', 'once', 'done', 'implemented', 'complete', 'that', 'been', 'with', 'used', 'times'].includes(kw)
       );
+      const jsonFiles = fs.readdirSync(directivesDir).filter(f => f.endsWith('.json'));
       for (const kw of keywords) {
-        if (doneFiles.some(f => f.toLowerCase().includes(kw))) return true;
+        for (const file of jsonFiles) {
+          if (file.toLowerCase().includes(kw)) {
+            try {
+              const dirJson = JSON.parse(fs.readFileSync(path.join(directivesDir, file), 'utf-8'));
+              if (dirJson.status === 'completed' || dirJson.status === 'done') return true;
+            } catch { /* skip */ }
+          }
+        }
       }
     }
   }
@@ -1090,13 +1089,13 @@ function priorityToOrder(p: string): number {
 
 function foremanLaunch(work: WorkItem, projectPath: string, now: Date): void {
   const agentDef = '/Users/yangyang/Repos/agent-conductor/.claude/agents/alex-cos.md';
-  const lessonsPath = '/Users/yangyang/Repos/agent-conductor/.context/lessons.md';
+  const lessonsDir = '/Users/yangyang/Repos/agent-conductor/.context/lessons/';
 
   let prompt: string;
   if (work.source === 'inbox') {
-    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Then execute the directive at ${work.path}. Also read ${lessonsPath} before starting.`;
+    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Then execute the directive at ${work.path}. Also read the lessons in ${lessonsDir} before starting.`;
   } else {
-    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Also read ${lessonsPath}. The backlog item "${work.name}" in goal "${work.goal}" has its trigger met (${work.trigger ?? 'unknown'}). Design and execute this item. Backlog file: ${work.path}`;
+    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Also read the lessons in ${lessonsDir}. The backlog item "${work.name}" in goal "${work.goal}" has its trigger met (${work.trigger ?? 'unknown'}). Design and execute this item. Backlog file: ${work.path}`;
   }
 
   const logDir = path.join(import.meta.dirname, '..', 'logs');

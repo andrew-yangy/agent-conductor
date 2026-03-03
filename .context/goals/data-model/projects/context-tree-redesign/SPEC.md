@@ -40,11 +40,11 @@
 {
   "id": "string (kebab-case, matches directory name)",
   "title": "string",
-  "status": "active | paused | achieved | archived",
+  "status": "in_progress | paused | completed | archived",
   "category": "product | framework | infrastructure | growth",
   "description": "string (one paragraph)",
-  "created": "ISO date",
-  "updated": "ISO date",
+  "created": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
+  "updated": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
   "kpis": [
     {
       "id": "string (e.g. kpi-1)",
@@ -66,7 +66,7 @@
           "description": "string (measurable outcome)",
           "target": "string or number",
           "current": "string or number",
-          "status": "not_started | in_progress | achieved | missed"
+          "status": "not_started | in_progress | completed | missed"
         }
       ]
     }
@@ -90,7 +90,7 @@
   "id": "string (kebab-case, matches directory name)",
   "title": "string",
   "goal_id": "string (FK to Goal.id, must match filesystem path)",
-  "status": "proposed | planning | active | blocked | completed | abandoned",
+  "status": "proposed | planning | in_progress | blocked | completed | abandoned",
   "priority": "p0 | p1 | p2 | p3",
   "sequence": "integer (optional, roadmap ordering within the goal)",
   "depends_on_project": "string | null (optional, format: goal-id/project-id for cross-goal, or project-id for same-goal)",
@@ -121,8 +121,8 @@
   "tasks": [
     "// See Task schema below"
   ],
-  "created": "ISO date",
-  "updated": "ISO date",
+  "created": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
+  "updated": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
   "completed": "ISO date | null"
 }
 ```
@@ -160,19 +160,29 @@
   "depends_on": ["string (task IDs within same project)"],
   "blocked_reason": "string | null (set when status = blocked)",
   "cross_project_dep": "string | null (format: goal-id/project-id:task-id)",
+  "acceptance_criteria": ["string (testable criterion for this task)"] | null,
+  "verified_by": ["string (agent names who verified this task)"] | null,
+  "review_outcome": "pass | fail | critical | null",
   "output": "string | null (summary of what was done, set on completion)",
-  "created": "ISO date",
-  "completed": "ISO date | null"
+  "created": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
+  "completed": "ISO 8601 timestamp | null"
 }
 ```
 
 **Required fields:** id, title, status, created
-**Optional fields:** phase, agent, depends_on, blocked_reason, cross_project_dep, output, completed
+**Optional fields:** phase, agent, depends_on, blocked_reason, cross_project_dep, acceptance_criteria, verified_by, review_outcome, output, completed
+
+**Task verification fields:**
+- `acceptance_criteria`: Testable criteria specific to this task (mini-DOD). Set during planning or build phase. Complements the project-level DOD which covers the aggregate delivery.
+- `verified_by`: Agent(s) who reviewed/tested this task's output. Set when the task is verified — may differ from `agent` (who built it).
+- `review_outcome`: Result of verification. `pass` = criteria met, `fail` = issues found but non-blocking, `critical` = must fix before project ships.
 
 **Constraints:**
 - Tasks are atomic, single-agent work items
 - No separate .md files for tasks
 - Cross-project dependencies are explicit but strongly discouraged
+- When a task is completed, `agent`, `verified_by`, and `review_outcome` MUST be populated. Use `["self"]` for `agent` when work was done directly in the CEO session without the directive pipeline.
+- Tasks without verification are technically valid but indicate a gap in the review process.
 
 ### 2.4 Directive
 
@@ -182,11 +192,11 @@
 {
   "id": "string (kebab-case)",
   "title": "string",
-  "status": "pending | triaged | executing | completed | rejected",
+  "status": "pending | triaged | in_progress | completed | rejected",
   "source": "ceo | scout | healthcheck | walkthrough",
   "weight": "quick-fix | tactical | strategic",
-  "created": "ISO date",
-  "updated": "ISO date",
+  "created": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
+  "updated": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
   "completed": "ISO date | null",
   "triage": {
     "action": "create_project | add_tasks | update_existing | create_goal | reject",
@@ -213,9 +223,9 @@
     ]
   },
   "phases": {
-    "audit": { "findings": [], "agent": "string", "timestamp": "ISO date" },
-    "build": { "summary": "string", "files_changed": [], "agent": "string", "timestamp": "ISO date" },
-    "review": { "outcome": "pass | fail | critical", "findings": [], "agent": "string", "timestamp": "ISO date" }
+    "audit": { "findings": [], "agent": "string", "timestamp": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)" },
+    "build": { "summary": "string", "files_changed": [], "agent": "string", "timestamp": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)" },
+    "review": { "outcome": "pass | fail | critical", "findings": [], "agent": "string", "timestamp": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)" }
   },
   "cast": {},
   "dod": [{ "criterion": "string", "met": false, "verified_by": [] }],
@@ -244,8 +254,8 @@
   "source_detail": "string (e.g. scout agent name, directive ID)",
   "trigger": "string | null (condition that makes this actionable)",
   "promoted_to": "string | null (directive ID if promoted)",
-  "created": "ISO date",
-  "updated": "ISO date"
+  "created": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)",
+  "updated": "ISO 8601 timestamp (e.g. 2026-03-03T10:30:00Z)"
 }
 ```
 

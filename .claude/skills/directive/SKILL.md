@@ -30,7 +30,7 @@ Agent tool call:
 
     CRITICAL: You are a background agent. You CANNOT use AskUserQuestion or Chrome MCP tools.
     - For CEO approval gates: write the plan to an artifact file and STOP (return summary to CEO)
-    - For UX verification: include instructions in "Needs CEO Eyes"
+    - For UX verification: write a ui-review-request.json file (see UX Verification Phase) — the main session will execute browser checks when you return
     - For medium-risk follow-ups within directive scope: auto-approve, include in summary
 
     WORKING DIRECTORY: {cwd}
@@ -55,8 +55,24 @@ Alex returns with one of:
 
 2. **Done (lightweight/medium directives — no approval needed):**
    - Show Alex's CEO summary (Done / Changes / Needs CEO Eyes / Next)
-   - If "Needs CEO Eyes" has items, CEO handles them
+   - **Check for UI review request** (see below)
+   - If "Needs CEO Eyes" has non-UI items, CEO handles them
    - Done.
+
+### Automatic UI Review on Alex Return
+
+After Alex returns (for ANY outcome — plan approval or done), check for `~/.claude/directives/ui-review-request.json`. If it exists:
+
+1. Read the file — it contains URLs, elements to test, expected behavior
+2. **Execute the UI review yourself** using Chrome MCP tools (`mcp__claude-in-chrome__*`):
+   - Navigate to each URL in the request
+   - Click every element listed
+   - Verify expected data/behavior
+   - Take screenshots as evidence
+3. If the review **passes**: delete the request file, include results in the summary
+4. If the review **fails**: fix issues if simple (spawn an engineer), or flag to CEO with screenshots showing what's broken. Do NOT delete the request file until issues are resolved.
+
+**This is NOT optional.** The main session must run the UI review before the directive is considered complete. Alex cannot mark UI work as done — only the main session can verify UI in the browser.
 
 ### Skip Delegation When:
 - **The CEO explicitly says "run inline"** — honor the request, go to Step 0b directly
@@ -235,7 +251,7 @@ After reading the directive .md, create `.context/directives/$ARGUMENTS.json` al
 {
   "id": "$ARGUMENTS",
   "title": "{extracted from first heading of the .md}",
-  "status": "executing",
+  "status": "in_progress",
   "created": "{today's date YYYY-MM-DD}",
   "completed": null,
   "weight": "{classification from Step 0b: lightweight | standard | strategic}",
@@ -725,7 +741,7 @@ Write initial state to `~/.claude/directives/current.json`:
 ```json
 {
   "directiveName": "$ARGUMENTS",
-  "status": "executing",
+  "status": "in_progress",
   "totalInitiatives": N,
   "currentInitiative": 0,
   "currentPhase": "starting",
@@ -741,7 +757,7 @@ Write initial state to `~/.claude/directives/current.json`:
 
 At Step 7 (completion), update status to `"completed"` or `"failed"`.
 
-**Also ensure directive.json exists** at this point. If Step 1 didn't create it (e.g., lightweight process that skipped Step 1), create `.context/directives/$ARGUMENTS.json` now with the schema from Step 1. Update its `status` to `"executing"` and set `weight` from the triage classification.
+**Also ensure directive.json exists** at this point. If Step 1 didn't create it (e.g., lightweight process that skipped Step 1), create `.context/directives/$ARGUMENTS.json` now with the schema from Step 1. Update its `status` to `"in_progress"` and set `weight` from the triage classification.
 
 **Checkpoint:** Write checkpoint with `current_step: "step-4c"`.
 
@@ -912,7 +928,44 @@ Use these clarifications to guide your implementation. If the answers revealed s
 
 **Skip UX verification if:** The initiative is backend-only, research-only, or doesn't touch any user-facing code.
 
-**When running as Alex (Chief of Staff):** Chrome MCP tools are unavailable. Include specific UX verification instructions in the "Needs CEO Eyes" section of the summary — URLs to visit, elements to click, expected behavior, data to validate. The CEO (main session) handles browser checks.
+**When running as Alex (Chief of Staff):** Chrome MCP tools are unavailable. Write a structured UI review request file that the main session will execute automatically when Alex returns.
+
+Write to `~/.claude/directives/ui-review-request.json`:
+
+```json
+{
+  "directive": "{directive-name}",
+  "created": "ISO timestamp",
+  "initiatives": [
+    {
+      "id": "initiative-slug",
+      "title": "Human-readable title",
+      "pages": [
+        {
+          "url": "http://localhost:3000/path",
+          "description": "What this page shows",
+          "checks": [
+            {
+              "action": "navigate | click | verify-text | verify-count | verify-element",
+              "target": "CSS selector or text description of element",
+              "expected": "What should happen or what value should be shown",
+              "critical": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Check derivation:** For each UI-touching initiative, translate the Definition of Done criteria into concrete browser checks. Every DOD criterion that relates to what the user sees must become at least one check. Also include:
+- Navigate to every modified page
+- Click every new/changed interactive element
+- Verify data displayed matches backend reality (counts, lists, statuses)
+- Test the "9am CEO workflow" path through the changed pages
+
+The main session reads this file when Alex returns, executes all checks via Chrome MCP, and reports pass/fail. The directive is NOT complete until UI review passes.
 
 ### User-Perspective Review (mandatory for all initiatives)
 
@@ -1048,11 +1101,16 @@ When the directive produces shippable work, create or update project.json files 
    - Create directory: `mkdir -p .context/goals/{goal_folder}/projects/{initiative-id}/`
    - Write `project.json` conforming to the SPEC (Section 2.2). **All fields are mandatory:**
      - `id`, `title`, `goal_id`, `status`, `priority`, `description`
+     - **`status` MUST reflect reality**: if all tasks are completed, set `"status": "completed"` and `"completed": "{current ISO timestamp}"`. Do NOT leave projects as `"in_progress"` when all work is done.
      - `source_directive`: the directive name
      - `scope`: `{ "in": [...], "out": [...] }` — from Morgan's plan scope + audit findings
      - `dod`: from Morgan's `definition_of_done` — mapped to `[{ "criterion": "...", "met": true/false, "verified_by": "reviewer-name | null" }]`. Mark criteria met/unmet based on review outcomes.
      - `verify`: `{ "checklist": [...], "reviewers": [{ "agent": "...", "domain": "..." }], "browser_test": true/false }` — derived from Morgan's cast (reviewers), initiative domain, and whether UI was touched. Checklist items are project-specific acceptance tests, NOT "type-check passes" (that's implied).
-     - `tasks`: populated from the initiative's phases and sub-work
+     - `tasks`: populated from the initiative's phases and sub-work. **Each task MUST include:**
+       - `agent`: array of agent names who performed the work (NEVER leave as `[]` for completed tasks — use the builder from the cast)
+       - `acceptance_criteria`: testable criteria for this specific task (derived from the initiative's DOD, split per task)
+       - `verified_by`: array of agent names who reviewed/verified this task (from the initiative's cast.reviewers)
+       - `review_outcome`: `"pass"` | `"fail"` | `"critical"` | `null` — from the review phase output
    - If the project already exists (from a previous partial run), update rather than duplicate
 
 2. **For each completed initiative, also update directive.json:**
@@ -1349,6 +1407,8 @@ Show the CEO:
 - Add clarification phase to simple initiatives with just ["build", "review"] phases — tight scope makes it unnecessary token overhead
 - Have the same agent review changes to its own behavior, prompts, or personality (conflict of interest)
 - Run strategic process for directives with a clear prescribed approach (that's heavyweight, not strategic)
+- Mark a directive as complete when UI review is pending — the main session must execute browser checks first
+- Skip writing ui-review-request.json when initiatives touch UI files — Alex MUST write the request file so the main session can execute it
 
 ### ALWAYS
 - Delegate to Alex via Step 0a when the CEO invokes /directive (keeps CEO session clean)
@@ -1363,7 +1423,8 @@ Show the CEO:
 - Include audit findings in engineer prompts (active files, recommended approach)
 - Include verify command in engineer prompts
 - Include "propose what's missing" instruction in engineer prompts
-- Run UX verification in browser after any initiative that touches UI code
+- Run UX verification in browser after any initiative that touches UI code — when Alex returns with UI work, the main session MUST read ui-review-request.json and execute all checks via Chrome MCP before marking the directive complete
+- Write ui-review-request.json (Alex) when ANY initiative touches UI file patterns (*.tsx, *.jsx, *.css, etc.) — this is how Alex hands off browser testing to the main session
 - Include user-perspective evaluation in every reviewer prompt (not just code quality)
 - Require `user_walkthrough` in engineer build reports and `user_perspective` in reviewer output
 - Process follow-ups by risk level after initiatives complete (Step 6b)

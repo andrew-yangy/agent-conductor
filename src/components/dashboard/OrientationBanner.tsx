@@ -38,7 +38,7 @@ export default function OrientationBanner() {
 
     // Active work: from directive state or most recent active session
     let activeWork = '';
-    if (directiveState?.status === 'executing') {
+    if (directiveState?.status === 'in_progress') {
       const currentInit = directiveState.initiatives.find(
         i => i.status === 'in_progress'
       );
@@ -65,7 +65,7 @@ export default function OrientationBanner() {
       const features = workState.features.features ?? [];
       blockedCount += features.filter(f => f.status === 'blocked').length;
       inProgressFeatures = features
-        .filter(f => f.status === 'in-progress' || f.status === 'blocked')
+        .filter(f => f.status === 'in_progress' || f.status === 'blocked')
         .map(f => ({
           title: f.title,
           goalId: f.goalId,
@@ -76,10 +76,10 @@ export default function OrientationBanner() {
     if (workState?.backlogs) {
       const items = workState.backlogs.items ?? [];
       blockedCount += items.filter(b => b.status === 'blocked').length;
-      totalPendingBacklog = items.filter(b => !b.status || b.status === 'pending' || b.status === 'not-started').length;
+      totalPendingBacklog = items.filter(b => !b.status || b.status === 'pending' || b.status === 'not_started').length;
     }
     if (workState?.goals) {
-      activeGoalCount = (workState.goals.goals ?? []).filter(g => g.status === 'in-progress').length;
+      activeGoalCount = (workState.goals.goals ?? []).filter(g => g.status === 'in_progress').length;
     }
 
     return { lastActive, activeWork, attentionCount, blockedCount, inProgressFeatures, activeGoalCount, totalPendingBacklog };

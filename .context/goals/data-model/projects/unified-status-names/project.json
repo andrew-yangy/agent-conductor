@@ -1,0 +1,140 @@
+{
+  "id": "unified-status-names",
+  "title": "Unify status names across all entity types",
+  "goal_id": "data-model",
+  "status": "completed",
+  "priority": "p1",
+  "description": "Unified status vocabulary across goals, projects, tasks, directives, and backlogs. Replaced active/executing/done with in_progress/completed. Fixed stale project statuses. Updated SPEC, all JSON files in both repos, frontend types, statusColor utility, state-watcher mappings, goal-watcher mappings, and directive SKILL.md pipeline.",
+  "scope": {
+    "in": [
+      "SPEC.md status enums",
+      "All .context/**/*.json in both repos",
+      "Frontend types and components",
+      "Server watchers",
+      "SKILL.md directive pipeline"
+    ],
+    "out": [
+      "Session statuses (working/done/idle/etc) \u2014 external to Claude"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "Zero instances of 'active', 'executing', 'achieved', or 'done' as entity status in JSON files",
+      "met": true,
+      "verified_by": [
+        "self"
+      ]
+    },
+    {
+      "criterion": "SPEC.md uses in_progress/completed consistently",
+      "met": true,
+      "verified_by": [
+        "self"
+      ]
+    },
+    {
+      "criterion": "Frontend types and components use unified statuses",
+      "met": true,
+      "verified_by": [
+        "self"
+      ]
+    },
+    {
+      "criterion": "Type-check passes",
+      "met": true,
+      "verified_by": [
+        "self"
+      ]
+    },
+    {
+      "criterion": "SKILL.md pipeline uses in_progress instead of executing, and explicitly marks completed projects",
+      "met": true,
+      "verified_by": [
+        "self"
+      ]
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "grep for active/executing/done/achieved entity statuses returns 0 in .context/**/*.json",
+      "Type-check passes clean"
+    ],
+    "reviewers": [],
+    "browser_test": true
+  },
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Update SPEC.md with unified status values",
+      "status": "completed",
+      "phase": "build",
+      "agent": [
+        "self"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": "pass",
+      "output": "Goal: active\u2192in_progress, achieved\u2192completed. Project: active\u2192in_progress. Directive: executing\u2192in_progress. Key Result: achieved\u2192completed.",
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
+    },
+    {
+      "id": "t2",
+      "title": "Migrate all JSON files in both repos",
+      "status": "completed",
+      "phase": "build",
+      "agent": [
+        "self"
+      ],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": "pass",
+      "output": "21 status values migrated (4 in agent-conductor, 17 in sw). 268 done\u2192completed (12+256). 1 stale project fixed (dashboard-glob-reads).",
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
+    },
+    {
+      "id": "t3",
+      "title": "Update frontend types, components, and status utilities",
+      "status": "completed",
+      "phase": "build",
+      "agent": [
+        "self"
+      ],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": "pass",
+      "output": "Updated: LifecycleState enum, DirectiveState.status, GoalArea.status, statusColor/statusBgColor, ProjectsPage, DirectivePipeline, OrientationBanner, DirectiveProgress, WorkSummary, CeoBrief, SearchCommandPalette, DashboardPage. All in-progress\u2192in_progress, done\u2192completed for entity statuses.",
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
+    },
+    {
+      "id": "t4",
+      "title": "Fix root cause: SKILL.md and server watchers",
+      "status": "completed",
+      "phase": "build",
+      "agent": [
+        "self"
+      ],
+      "depends_on": [
+        "t2"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": "pass",
+      "output": "SKILL.md: executing\u2192in_progress, added explicit instruction to mark projects completed when all tasks done. State-watcher: updated all mapping functions. Goal-watcher: removed done/in-progress legacy aliases.",
+      "created": "2026-03-03T00:00:00Z",
+      "completed": "2026-03-03T00:00:00Z"
+    }
+  ],
+  "created": "2026-03-03T00:00:00Z",
+  "updated": "2026-03-03T00:00:00Z",
+  "completed": "2026-03-03T00:00:00Z"
+}

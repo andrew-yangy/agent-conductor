@@ -26,10 +26,10 @@ export type WorkItemType = z.infer<typeof WorkItemType>;
 
 export const LifecycleState = z.enum([
   'pending',
-  'in-progress',
+  'in_progress',
   'blocked',
   'deferred',
-  'done',
+  'completed',
   'abandoned',
 ]);
 export type LifecycleState = z.infer<typeof LifecycleState>;
@@ -61,13 +61,17 @@ export type BaseWorkItem = z.infer<typeof BaseWorkItem>;
 export const GoalRecord = BaseWorkItem.extend({
   type: z.literal('goal'),
   description: z.string().optional(),
-  activeFeatures: z.array(z.string()),      // feature IDs
-  doneFeatures: z.array(z.string()),        // feature IDs
+  category: z.string().optional(),
+  activeFeatures: z.array(z.string()),      // project IDs (legacy name kept for compat)
+  doneFeatures: z.array(z.string()),        // project IDs (legacy name kept for compat)
   backlogCount: z.number(),
   hasOkrs: z.boolean(),
   hasGoalMd: z.boolean(),
+  hasGoalJson: z.boolean(),
   hasBacklog: z.boolean(),
   issues: z.array(z.string()).optional(),
+  repoId: z.string().optional(),            // project/repo identifier (e.g. "wisely", "agent-conductor")
+  repoName: z.string().optional(),          // display name (e.g. "Wisely", "Agent Conductor")
 });
 export type GoalRecord = z.infer<typeof GoalRecord>;
 
@@ -79,6 +83,8 @@ export const FeatureRecord = BaseWorkItem.extend({
   hasSpec: z.boolean(),
   hasDesign: z.boolean(),
   specSummary: z.string().optional(),
+  repoId: z.string().optional(),
+  repoName: z.string().optional(),
 });
 export type FeatureRecord = z.infer<typeof FeatureRecord>;
 
@@ -99,6 +105,8 @@ export const BacklogRecord = BaseWorkItem.extend({
   trigger: z.string().optional(),
   sourceContext: z.string().optional(),
   sourceDirective: z.string().optional(),
+  repoId: z.string().optional(),
+  repoName: z.string().optional(),
 });
 export type BacklogRecord = z.infer<typeof BacklogRecord>;
 

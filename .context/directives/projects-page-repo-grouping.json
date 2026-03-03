@@ -1,0 +1,13 @@
+{
+  "id": "projects-page-repo-grouping",
+  "title": "Projects page repo grouping + dynamic project discovery",
+  "status": "completed",
+  "priority": "P1",
+  "weight": "medium",
+  "goal_ids": ["ui"],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "produced_features": [],
+  "report": "reports/projects-page-repo-grouping-2026-03-03.md",
+  "backlog_sources": []
+}

@@ -23,12 +23,12 @@ export default function WorkSummary() {
     const features = workState.features?.features ?? [];
     const backlogs = workState.backlogs?.items ?? [];
 
-    const activeGoals = goals.filter((g: GoalRecord) => g.status === 'in-progress');
-    const inProgressFeatures = features.filter((f: FeatureRecord) => f.status === 'in-progress');
+    const activeGoals = goals.filter((g: GoalRecord) => g.status === 'in_progress');
+    const inProgressFeatures = features.filter((f: FeatureRecord) => f.status === 'in_progress');
     const pendingFeatures = features.filter((f: FeatureRecord) => f.status === 'pending');
-    const doneFeatures = features.filter((f: FeatureRecord) => f.status === 'done');
+    const doneFeatures = features.filter((f: FeatureRecord) => f.status === 'completed');
     const totalBacklog = backlogs.length;
-    const actionableBacklog = backlogs.filter(b => b.status === 'pending' || b.status === 'in-progress' || b.status === 'blocked').length;
+    const actionableBacklog = backlogs.filter(b => b.status === 'pending' || b.status === 'in_progress' || b.status === 'blocked').length;
 
     // Top goals by active feature count
     const goalFeatureCount: Record<string, number> = {};

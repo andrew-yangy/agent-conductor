@@ -1,0 +1,185 @@
+{
+  "id": "correction-to-code-pipeline",
+  "title": "Auto-escalate CEO corrections from prose to enforced constraints",
+  "goal_id": "workflow-orchestration",
+  "status": "proposed",
+  "priority": "p0",
+  "sequence": 3,
+  "depends_on_project": "workflow-orchestration/deterministic-constraint-checker",
+  "description": "When the CEO states a correction twice, it should automatically become an enforced constraint \u2014 not remain prose that reviewers may miss. Phase 1 is research (define detection heuristics for 'what counts as a correction stated twice'), Phase 2 is build (generator + integration). Depends on the constraint checker existing to receive generated constraints.",
+  "source_directive": "harness-engineering-adoption",
+  "scope": {
+    "in": [
+      "Research: define heuristics for detecting repeated corrections",
+      "Correction sources: MEMORY.md, preferences.md Standing Corrections, conversation patterns",
+      "Generator: produce constraint definition JSON from detected correction prose",
+      "Integration: new constraints auto-added to constraint checker rule set",
+      "Digest reporting: 'New constraints generated this directive' section",
+      "Manual override: CEO can reject auto-generated constraints"
+    ],
+    "out": [
+      "NLP or ML-based semantic analysis",
+      "Retroactive enforcement of old corrections",
+      "Modifying how MEMORY.md is managed by Claude Code",
+      "Cross-session memory"
+    ]
+  },
+  "dod": [
+    {
+      "criterion": "Detection heuristics documented with examples of true positives and false positives",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Given a correction in Standing Corrections, the pipeline generates a valid constraint definition",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Generated constraints are automatically loaded by the constraint checker",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "Digest includes 'New Constraints' section when corrections are escalated",
+      "met": false,
+      "verified_by": []
+    },
+    {
+      "criterion": "CEO can review and reject auto-generated constraints before they become active",
+      "met": false,
+      "verified_by": []
+    }
+  ],
+  "verify": {
+    "checklist": [
+      "Manually add a correction to Standing Corrections \u2014 verify constraint is generated",
+      "Verify generated constraint catches violations when run through checker",
+      "Verify digest shows the new constraint",
+      "Verify CEO rejection path works"
+    ],
+    "reviewers": [
+      {
+        "agent": "sarah",
+        "domain": "architecture \u2014 heuristic quality, false positive rate, generated constraint correctness"
+      },
+      {
+        "agent": "marcus",
+        "domain": "product \u2014 is the correction-to-constraint flow intuitive for CEO?"
+      }
+    ],
+    "browser_test": false
+  },
+  "tags": [
+    "harness-engineering",
+    "automation",
+    "quality-gates"
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Research: analyze existing corrections to define detection heuristics",
+      "status": "pending",
+      "phase": "research",
+      "agent": [
+        "sarah"
+      ],
+      "depends_on": [],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t2",
+      "title": "Design: correction-to-constraint mapping rules and generated constraint format",
+      "status": "pending",
+      "phase": "design",
+      "agent": [
+        "sarah",
+        "morgan"
+      ],
+      "depends_on": [
+        "t1"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t3",
+      "title": "Build: correction detector \u2014 scan Standing Corrections + MEMORY.md for patterns",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t2"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t4",
+      "title": "Build: constraint generator \u2014 produce constraint JSON from detected correction",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t2"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t5",
+      "title": "Integrate with constraint checker and digest template",
+      "status": "pending",
+      "phase": "build",
+      "agent": [],
+      "depends_on": [
+        "t3",
+        "t4"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    },
+    {
+      "id": "t6",
+      "title": "Test with real corrections \u2014 validate detection accuracy and constraint quality",
+      "status": "pending",
+      "phase": "test",
+      "agent": [
+        "sarah"
+      ],
+      "depends_on": [
+        "t5"
+      ],
+      "acceptance_criteria": null,
+      "verified_by": null,
+      "review_outcome": null,
+      "output": null,
+      "created": "2026-03-03",
+      "completed": null
+    }
+  ],
+  "created": "2026-03-03",
+  "updated": "2026-03-03",
+  "completed": null
+}

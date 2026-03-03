@@ -35,7 +35,7 @@ server.tool(
 // --- conductor_backlog ---
 server.tool(
   'conductor_backlog',
-  'List backlog items for a goal, filtered by priority. Returns pending and done items from .context/state/backlogs.json.',
+  'List backlog items for a goal, filtered by priority. Reads directly from .context/goals/*/backlog.json.',
   {
     goal_id: z.string().optional().describe('Goal ID to filter by (e.g., "agent-conductor", "buywisely-growth"). Omit for all goals.'),
     priority: z.string().optional().describe('Priority filter (e.g., "P0", "P1", "P2"). Omit for all priorities.'),
@@ -58,7 +58,7 @@ server.tool(
 // --- conductor_add_backlog ---
 server.tool(
   'conductor_add_backlog',
-  'Add a new item to a goal\'s backlog.md file. Creates the backlog file if it does not exist.',
+  'Add a new item to a goal\'s backlog.json file. Creates the backlog file if it does not exist.',
   {
     goal_id: z.string().describe('Goal ID (directory name under .context/goals/, e.g., "agent-conductor")'),
     title: z.string().describe('Title of the backlog item'),
@@ -84,7 +84,7 @@ server.tool(
 // --- conductor_launch_directive ---
 server.tool(
   'conductor_launch_directive',
-  'Launch a directive from inbox/. Shows the directive preview and the CLI command to execute it. Pass no arguments to list available directives.',
+  'Launch a directive from .context/directives/. Shows the directive preview and the CLI command to execute it. Pass no arguments to list available directives.',
   {
     directive_name: z.string().optional().describe('Name of the directive file (without .md extension). Omit to list all available directives.'),
   },

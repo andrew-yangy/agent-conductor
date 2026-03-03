@@ -150,7 +150,7 @@ export default function CeoBrief() {
 
     // Done directives sorted by date, most recent first
     const doneDirectives = directives
-      .filter((d: DirectiveRecord) => d.status === 'done')
+      .filter((d: DirectiveRecord) => d.status === 'completed')
       .sort((a: DirectiveRecord, b: DirectiveRecord) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )
@@ -159,7 +159,7 @@ export default function CeoBrief() {
     return {
       goalsWithIssues: goals.filter((g: GoalRecord) => (g.issues?.length ?? 0) > 0),
       blockedFeatures: features.filter((f: FeatureRecord) => f.status === 'blocked'),
-      activeFeatures: features.filter((f: FeatureRecord) => f.status === 'in-progress'),
+      activeFeatures: features.filter((f: FeatureRecord) => f.status === 'in_progress'),
       recentCompletions: doneDirectives,
     };
   }, [workState]);

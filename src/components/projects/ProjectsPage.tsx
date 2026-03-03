@@ -19,6 +19,7 @@ import {
   Zap,
   RefreshCw,
   Search,
+  GitBranch,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -34,10 +35,10 @@ import DiscussionsSection from './DiscussionsSection';
 
 function lifecycleBadge(status: string) {
   switch (status) {
-    case 'in-progress':
-      return <Badge variant="outline" className="bg-status-yellow/15 text-status-yellow border-status-yellow/30 text-[10px] px-1.5 py-0">Active</Badge>;
-    case 'done':
-      return <Badge variant="outline" className="bg-status-green/15 text-status-green border-status-green/30 text-[10px] px-1.5 py-0">Done</Badge>;
+    case 'in_progress':
+      return <Badge variant="outline" className="bg-status-yellow/15 text-status-yellow border-status-yellow/30 text-[10px] px-1.5 py-0">In Progress</Badge>;
+    case 'completed':
+      return <Badge variant="outline" className="bg-status-green/15 text-status-green border-status-green/30 text-[10px] px-1.5 py-0">Completed</Badge>;
     case 'blocked':
       return <Badge variant="outline" className="bg-status-red/15 text-status-red border-status-red/30 text-[10px] px-1.5 py-0">Blocked</Badge>;
     case 'pending':
@@ -48,9 +49,9 @@ function lifecycleBadge(status: string) {
 
 function featureStatusIcon(status: string) {
   switch (status) {
-    case 'done':
+    case 'completed':
       return <CheckCircle2 className="h-3.5 w-3.5 text-status-green shrink-0" />;
-    case 'in-progress':
+    case 'in_progress':
       return <Loader2 className="h-3.5 w-3.5 text-status-yellow shrink-0 animate-spin" />;
     default:
       return <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
@@ -62,8 +63,8 @@ function featureStatusIcon(status: string) {
 // ---------------------------------------------------------------------------
 
 function progressBarColor(status: string, pct: number): string {
-  if (status === 'done' || pct === 100) return 'bg-status-green';
-  if (status === 'in-progress') return 'bg-status-yellow';
+  if (status === 'completed' || pct === 100) return 'bg-status-green';
+  if (status === 'in_progress') return 'bg-status-yellow';
   if (status === 'blocked') return 'bg-status-red';
   return 'bg-muted-foreground/50';
 }
@@ -80,13 +81,13 @@ function FeatureRow({ feature, highlighted = false }: { feature: FeatureRecord; 
   const rawPct = feature.taskCount > 0
     ? Math.round((feature.completedTaskCount / feature.taskCount) * 100)
     : 0;
-  const completionPct = feature.status === 'done' ? 100 : rawPct;
+  const completionPct = feature.status === 'completed' ? 100 : rawPct;
 
   return (
     <div ref={ref} className={cn("rounded-md hover:bg-accent/50 transition-colors cursor-pointer", highlighted && "ring-1 ring-primary/50 bg-primary/5")} onClick={() => setExpanded(!expanded)}>
       <div className="flex items-center gap-3 py-1.5 px-2">
         {featureStatusIcon(feature.status)}
-        <span className={cn("text-xs truncate flex-1", feature.status === 'done' && "text-muted-foreground")}>{feature.title}</span>
+        <span className={cn("text-xs truncate flex-1", feature.status === 'completed' && "text-muted-foreground")}>{feature.title}</span>
         <div className="flex items-center gap-2 shrink-0">
           {feature.hasSpec && (
             <FileText className="h-3 w-3 text-muted-foreground" title="Has spec" />
@@ -115,9 +116,9 @@ function FeatureRow({ feature, highlighted = false }: { feature: FeatureRecord; 
           <div className="flex items-center gap-3 text-[10px]">
             <span className={cn(
               "font-medium",
-              feature.status === 'done' ? 'text-status-green' : feature.status === 'in-progress' ? 'text-status-yellow' : feature.status === 'blocked' ? 'text-status-red' : 'text-muted-foreground'
+              feature.status === 'completed' ? 'text-status-green' : feature.status === 'in_progress' ? 'text-status-yellow' : feature.status === 'blocked' ? 'text-status-red' : 'text-muted-foreground'
             )}>
-              {feature.status === 'in-progress' ? 'In Progress' : feature.status === 'done' ? 'Done' : feature.status === 'blocked' ? 'Blocked' : 'Pending'}
+              {feature.status === 'in_progress' ? 'In Progress' : feature.status === 'completed' ? 'Completed' : feature.status === 'blocked' ? 'Blocked' : 'Pending'}
             </span>
             <span className="text-muted-foreground">{feature.completedTaskCount}/{feature.taskCount} tasks ({completionPct}%)</span>
           </div>
@@ -148,9 +149,9 @@ function sortByPriority(items: BacklogRecord[]): BacklogRecord[] {
 
 function backlogStatusIcon(status: string) {
   switch (status) {
-    case 'done':
+    case 'completed':
       return <CheckCircle2 className="h-3 w-3 text-status-green/60 shrink-0" />;
-    case 'in-progress':
+    case 'in_progress':
       return <Loader2 className="h-3 w-3 text-status-yellow shrink-0 animate-spin" />;
     case 'deferred':
       return <Circle className="h-3 w-3 text-muted-foreground/40 shrink-0" />;
@@ -176,7 +177,7 @@ function BacklogRow({ item, highlighted = false }: { item: BacklogRecord; highli
     P2: 'text-muted-foreground',
   };
 
-  const isDone = item.status === 'done';
+  const isDone = item.status === 'completed';
   const isDeferred = item.status === 'deferred';
 
   return (
@@ -255,9 +256,9 @@ function BacklogSection({
   setShowBacklog: (v: boolean) => void;
   highlightId?: string;
 }) {
-  const pending = sortByPriority(backlogs.filter(b => b.status === 'pending' || b.status === 'in-progress' || b.status === 'blocked'));
+  const pending = sortByPriority(backlogs.filter(b => b.status === 'pending' || b.status === 'in_progress' || b.status === 'blocked'));
   const deferred = sortByPriority(backlogs.filter(b => b.status === 'deferred'));
-  const done = sortByPriority(backlogs.filter(b => b.status === 'done'));
+  const done = sortByPriority(backlogs.filter(b => b.status === 'completed'));
   const [showDone, setShowDone] = useState(done.some(b => b.id === highlightId));
 
   const parts: string[] = [];
@@ -332,12 +333,12 @@ function GoalCard({
   const [showBacklog, setShowBacklog] = useState(
     backlogOnly || backlogs.some(b => b.id === highlightId)
   );
-  const activeFeatures = features.filter(f => f.status === 'in-progress');
-  const doneFeatures = features.filter(f => f.status === 'done');
-  const otherFeatures = features.filter(f => f.status !== 'in-progress' && f.status !== 'done');
+  const activeFeatures = features.filter(f => f.status === 'in_progress');
+  const doneFeatures = features.filter(f => f.status === 'completed');
+  const otherFeatures = features.filter(f => f.status !== 'in_progress' && f.status !== 'completed');
   const hasIssues = (goal.issues?.length ?? 0) > 0;
 
-  const displayStatus = (features.length === 0 && backlogs.length === 0 && goal.status === 'in-progress')
+  const displayStatus = (features.length === 0 && backlogs.length === 0 && goal.status === 'in_progress')
     ? 'pending'
     : goal.status;
 
@@ -494,7 +495,7 @@ export default function ProjectsPage() {
   const [fetchAttempted, setFetchAttempted] = useState(false);
   const [reportPath, setReportPath] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked' | 'done'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'blocked' | 'completed'>('all');
   const [searchParams] = useSearchParams();
   const expandGoalId = searchParams.get('expand') ?? undefined;
   const highlightId = searchParams.get('highlight') ?? undefined;
@@ -533,7 +534,7 @@ export default function ProjectsPage() {
     const discussions = workState?.conductor?.discussions ?? [];
     const lessons = workState?.conductor?.lessons ?? [];
 
-    const activeFeatures = features.filter(f => f.status === 'in-progress' || f.status === 'blocked');
+    const activeFeatures = features.filter(f => f.status === 'in_progress' || f.status === 'blocked');
 
     return {
       goals,
@@ -546,7 +547,7 @@ export default function ProjectsPage() {
       lessons,
       generated: workState?.goals?.generated ?? '',
       totalGoals: goals.length,
-      totalActiveFeatures: features.filter(f => f.status !== 'done').length,
+      totalActiveFeatures: features.filter(f => f.status !== 'completed').length,
       totalBacklog: backlogs.length,
       totalDirectives: directives.length,
       blockedCount: features.filter(f => f.status === 'blocked').length,
@@ -570,9 +571,9 @@ export default function ProjectsPage() {
 
     const matchesStatus = (status: string) => {
       if (statusFilter === 'all') return true;
-      if (statusFilter === 'active') return status === 'in-progress';
+      if (statusFilter === 'in_progress') return status === 'in_progress';
       if (statusFilter === 'blocked') return status === 'blocked';
-      if (statusFilter === 'done') return status === 'done';
+      if (statusFilter === 'completed') return status === 'completed';
       return true;
     };
 
@@ -690,19 +691,19 @@ export default function ProjectsPage() {
           />
         </div>
         <div className="flex items-center gap-1.5">
-          {(['all', 'active', 'blocked', 'done'] as const).map(status => (
+          {([['all', 'All'], ['in_progress', 'In Progress'], ['blocked', 'Blocked'], ['completed', 'Completed']] as const).map(([value, label]) => (
             <Badge
-              key={status}
+              key={value}
               variant="outline"
               className={cn(
-                "text-[10px] px-2 py-0.5 cursor-pointer transition-colors capitalize",
-                statusFilter === status
+                "text-[10px] px-2 py-0.5 cursor-pointer transition-colors",
+                statusFilter === value
                   ? "bg-primary/15 text-primary border-primary/30"
                   : "text-muted-foreground hover:text-foreground"
               )}
-              onClick={() => setStatusFilter(status)}
+              onClick={() => setStatusFilter(value)}
             >
-              {status}
+              {label}
             </Badge>
           ))}
         </div>
@@ -718,7 +719,7 @@ export default function ProjectsPage() {
 
       {/* Active Work -- in-progress + blocked features */}
       {filteredActiveFeatures.length > 0 && (() => {
-        const inProgressFeatures = filteredActiveFeatures.filter(f => f.status === 'in-progress');
+        const inProgressFeatures = filteredActiveFeatures.filter(f => f.status === 'in_progress');
         const blockedActiveFeatures = filteredActiveFeatures.filter(f => f.status === 'blocked');
         return (
           <Card className="border-status-yellow/30 bg-status-yellow/5">
@@ -791,36 +792,67 @@ export default function ProjectsPage() {
         );
       })()}
 
-      {/* Goals -- flat list */}
-      <div className="space-y-3">
-        {filteredGoals.map(goal => {
-          let goalFeatures = allFeatures.filter(f => f.goalId === goal.id);
-          if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            const goalTitleMatch = goal.title.toLowerCase().includes(q);
-            if (!goalTitleMatch) {
-              goalFeatures = goalFeatures.filter(f => f.title.toLowerCase().includes(q));
-            }
+      {/* Goals -- grouped by repo */}
+      {(() => {
+        // Group goals by repoId (fall back to 'unknown' if missing)
+        const repoGroups = new Map<string, { repoName: string; goals: typeof filteredGoals }>();
+        for (const goal of filteredGoals) {
+          const rid = goal.repoId ?? 'unknown';
+          const rname = goal.repoName ?? 'Unknown';
+          if (!repoGroups.has(rid)) {
+            repoGroups.set(rid, { repoName: rname, goals: [] });
           }
-          if (statusFilter !== 'all') {
-            const statusMatch = (s: string) => statusFilter === 'active' ? s === 'in-progress' : statusFilter === 'blocked' ? s === 'blocked' : statusFilter === 'done' ? s === 'done' : true;
-            if (!statusMatch(goal.status)) {
-              goalFeatures = goalFeatures.filter(f => statusMatch(f.status));
-            }
-          }
-          const goalBacklogs = allBacklogs.filter(b => b.goalId === goal.id);
-          return (
-            <GoalCard
-              key={goal.id}
-              goal={goal}
-              features={goalFeatures}
-              backlogs={goalBacklogs}
-              initialOpen={goal.id === expandGoalId}
-              highlightId={highlightId}
-            />
-          );
-        })}
-      </div>
+          repoGroups.get(rid)!.goals.push(goal);
+        }
+
+        const groups = Array.from(repoGroups.entries());
+        const showHeaders = groups.length > 1;
+
+        return (
+          <div className="space-y-6">
+            {groups.map(([rid, { repoName, goals: groupGoals }]) => (
+              <div key={rid} className="space-y-3">
+                {showHeaders && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <GitBranch className="h-4 w-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold">{repoName}</h2>
+                    <span className="text-[10px] text-muted-foreground">
+                      {groupGoals.length} goal{groupGoals.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                )}
+                {groupGoals.map(goal => {
+                  let goalFeatures = allFeatures.filter(f => f.goalId === goal.id);
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const goalTitleMatch = goal.title.toLowerCase().includes(q);
+                    if (!goalTitleMatch) {
+                      goalFeatures = goalFeatures.filter(f => f.title.toLowerCase().includes(q));
+                    }
+                  }
+                  if (statusFilter !== 'all') {
+                    const statusMatch = (s: string) => statusFilter === 'in_progress' ? s === 'in_progress' : statusFilter === 'blocked' ? s === 'blocked' : statusFilter === 'completed' ? s === 'completed' : true;
+                    if (!statusMatch(goal.status)) {
+                      goalFeatures = goalFeatures.filter(f => statusMatch(f.status));
+                    }
+                  }
+                  const goalBacklogs = allBacklogs.filter(b => b.goalId === goal.id);
+                  return (
+                    <GoalCard
+                      key={goal.id}
+                      goal={goal}
+                      features={goalFeatures}
+                      backlogs={goalBacklogs}
+                      initialOpen={goal.id === expandGoalId}
+                      highlightId={highlightId}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Reports */}
       <ReportsSection reports={filteredReports} />

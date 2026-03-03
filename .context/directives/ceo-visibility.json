@@ -1,12 +1,12 @@
 {
   "id": "ceo-visibility",
-  "title": "CEO Visibility \u2014 Complete Picture of Everything",
+  "title": "CEO Visibility — Complete Picture of Everything",
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
-  "created": "2026-03-02",
-  "updated": "2026-03-02",
-  "completed": "2026-03-02",
+  "created": "2026-03-02T00:00:00Z",
+  "updated": "2026-03-02T00:00:00Z",
+  "completed": "2026-03-02T00:00:00Z",
   "triage": {
     "action": "update_existing",
     "goal_id": "ui",

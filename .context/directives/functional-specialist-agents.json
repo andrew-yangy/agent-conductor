@@ -4,8 +4,8 @@
   "status": "completed",
   "source": "ceo",
   "weight": "tactical",
-  "created": "2026-03-02",
-  "updated": "2026-03-02",
+  "created": "2026-03-02T00:00:00Z",
+  "updated": "2026-03-02T00:00:00Z",
   "completed": null,
   "triage": {
     "action": "update_existing",

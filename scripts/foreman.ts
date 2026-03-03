@@ -204,52 +204,82 @@ function isQuietHours(config: SchedulerConfig): boolean {
 function findReadyWork(projectPath: string): ReadyWork[] {
   const work: ReadyWork[] = [];
 
-  // 1. Scan inbox directives
-  const inboxDir = path.join(projectPath, '.context', 'conductor', 'inbox');
-  if (fs.existsSync(inboxDir)) {
-    const files = fs.readdirSync(inboxDir).filter(f => f.endsWith('.md'));
-    for (const file of files) {
-      const filePath = path.join(inboxDir, file);
-      const content = fs.readFileSync(filePath, 'utf-8');
+  // 1. Scan directives/*.json for pending directives
+  const directivesDir = path.join(projectPath, '.context', 'directives');
+  if (fs.existsSync(directivesDir)) {
+    const jsonFiles = fs.readdirSync(directivesDir).filter(f => {
+      if (!f.endsWith('.json')) return false;
+      try { return fs.statSync(path.join(directivesDir, f)).isFile(); } catch { return false; }
+    });
 
-      // Skip items with manual/deferred markers
-      if (SKIP_MARKERS.some(marker => content.includes(marker))) continue;
+    for (const file of jsonFiles) {
+      const filePath = path.join(directivesDir, file);
+      let dirJson: { id?: string; title?: string; status?: string; weight?: string } | null;
+      try {
+        dirJson = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      } catch { continue; }
+      if (!dirJson) continue;
 
-      const priority = extractPriority(content);
+      // Only pick up pending/triaged directives
+      const status = dirJson.status ?? 'pending';
+      if (status !== 'pending' && status !== 'triaged') continue;
+
+      // Check companion .md file for skip markers
+      const mdPath = path.join(directivesDir, file.replace('.json', '.md'));
+      if (fs.existsSync(mdPath)) {
+        const mdContent = fs.readFileSync(mdPath, 'utf-8');
+        if (SKIP_MARKERS.some(marker => mdContent.includes(marker))) continue;
+      }
+
+      // Extract priority from weight or default to P1
+      const priority = dirJson.weight === 'heavy' ? 'P0' : dirJson.weight === 'medium' ? 'P1' : 'P2';
+
       work.push({
         path: filePath,
-        name: file.replace(/\.md$/, ''),
+        name: file.replace('.json', ''),
         priority,
         source: 'inbox',
       });
     }
   }
 
-  // 2. Scan backlog files for items with met triggers
+  // 2. Scan backlog.json files for items with met triggers
   const goalsDir = path.join(projectPath, '.context', 'goals');
   if (fs.existsSync(goalsDir)) {
     const goalDirs = fs.readdirSync(goalsDir).filter(d => {
-      const stat = fs.statSync(path.join(goalsDir, d));
-      return stat.isDirectory() && !d.startsWith('_');
+      try {
+        const stat = fs.statSync(path.join(goalsDir, d));
+        return stat.isDirectory() && !d.startsWith('_') && !d.startsWith('.');
+      } catch { return false; }
     });
 
     for (const goalDir of goalDirs) {
-      const backlogPath = path.join(goalsDir, goalDir, 'backlog.md');
+      const backlogPath = path.join(goalsDir, goalDir, 'backlog.json');
       if (!fs.existsSync(backlogPath)) continue;
 
-      const content = fs.readFileSync(backlogPath, 'utf-8');
-      const backlogItems = extractBacklogItems(content, projectPath);
+      let items: Array<{
+        id?: string; title?: string; status?: string;
+        priority?: string; trigger?: string;
+      }>;
+      try {
+        const raw = JSON.parse(fs.readFileSync(backlogPath, 'utf-8'));
+        items = Array.isArray(raw) ? raw : [];
+      } catch { continue; }
 
-      for (const item of backlogItems) {
-        if (item.triggerMet) {
-          work.push({
-            path: backlogPath,
-            name: item.title,
-            priority: item.priority,
-            source: 'backlog',
-            trigger: item.trigger,
-          });
-        }
+      for (const item of items) {
+        if (!item.trigger) continue;
+        if (item.status === 'done' || item.status === 'deferred') continue;
+
+        const triggerMet = checkTrigger(item.trigger, projectPath);
+        if (!triggerMet) continue;
+
+        work.push({
+          path: backlogPath,
+          name: item.title ?? item.id ?? 'unknown',
+          priority: item.priority ?? 'P2',
+          source: 'backlog',
+          trigger: item.trigger,
+        });
       }
     }
   }
@@ -274,93 +304,38 @@ function priorityOrder(p: string): number {
   return 3;
 }
 
-function extractPriority(content: string): string {
-  // Look for **Priority**: P1 or Priority: P0 patterns
-  const match = content.match(/\*?\*?Priority\*?\*?:\s*(P[0-2])/i);
-  return match ? match[1] : 'P2';
-}
-
-interface BacklogItem {
-  title: string;
-  priority: string;
-  trigger: string;
-  triggerMet: boolean;
-}
-
-function extractBacklogItems(content: string, projectPath: string): BacklogItem[] {
-  const items: BacklogItem[] = [];
-  const lines = content.split('\n');
-
-  let currentTitle = '';
-  let currentPriority = 'P2';
-  let currentTrigger = '';
-  let inItem = false;
-  let isDone = false;
-
-  for (const line of lines) {
-    // Section headers like ### Item Name or ### ~~Item Name~~ (done)
-    if (line.match(/^###\s+/)) {
-      // Save previous item if it had a trigger
-      if (inItem && currentTrigger && !isDone) {
-        items.push({
-          title: currentTitle,
-          priority: currentPriority,
-          trigger: currentTrigger,
-          triggerMet: checkTrigger(currentTrigger, projectPath),
-        });
-      }
-
-      currentTitle = line.replace(/^###\s+/, '').replace(/~~(.+?)~~/g, '$1').trim();
-      isDone = line.includes('~~') || line.includes('Done') || line.includes('DEFERRED');
-      currentPriority = 'P2';
-      currentTrigger = '';
-      inItem = true;
-    }
-
-    if (inItem) {
-      // Extract priority
-      const prioMatch = line.match(/\*?\*?Priority\*?\*?:\s*(P[0-2])/i);
-      if (prioMatch) currentPriority = prioMatch[1];
-
-      // Extract trigger
-      const triggerMatch = line.match(/\*?\*?Trigger\*?\*?:\s*(.+)/i);
-      if (triggerMatch) currentTrigger = triggerMatch[1].trim();
-    }
-  }
-
-  // Don't forget last item
-  if (inItem && currentTrigger && !isDone) {
-    items.push({
-      title: currentTitle,
-      priority: currentPriority,
-      trigger: currentTrigger,
-      triggerMet: checkTrigger(currentTrigger, projectPath),
-    });
-  }
-
-  return items;
-}
+// extractPriority and extractBacklogItems removed -- backlog is now JSON-based
 
 function checkTrigger(trigger: string, projectPath: string): boolean {
   const lower = trigger.toLowerCase();
 
-  // Check for "NOT FIRED" marker — explicit signal that trigger hasn't fired
+  // Check for "NOT FIRED" marker -- explicit signal that trigger hasn't fired
   if (lower.includes('not fired')) return false;
 
-  // Check for "FIRED" marker — explicit signal
+  // Check for "FIRED" marker -- explicit signal
   if (lower.includes('fired') && !lower.includes('not fired')) return true;
 
   // Check for done-state markers
   if (lower.includes('done') || lower.includes('implemented') || lower.includes('complete')) {
-    // Heuristic: if the trigger mentions something being done, check if done/ has it
-    const doneDir = path.join(projectPath, '.context', 'conductor', 'done');
-    if (fs.existsSync(doneDir)) {
-      const doneFiles = fs.readdirSync(doneDir);
-      // Try to match keywords from the trigger against done files
+    // Heuristic: check completed directives for keyword matches
+    const directivesDir = path.join(projectPath, '.context', 'directives');
+    if (fs.existsSync(directivesDir)) {
+      const jsonFiles = fs.readdirSync(directivesDir).filter(f => f.endsWith('.json'));
       const keywords = lower.match(/\b\w{4,}\b/g) ?? [];
-      for (const kw of keywords) {
-        if (['when', 'after', 'once', 'done', 'implemented', 'complete', 'that', 'been', 'with', 'used', 'times'].includes(kw)) continue;
-        if (doneFiles.some(f => f.toLowerCase().includes(kw))) return true;
+      const skipWords = ['when', 'after', 'once', 'done', 'implemented', 'complete', 'that', 'been', 'with', 'used', 'times'];
+
+      for (const file of jsonFiles) {
+        let dirJson: { status?: string } | null;
+        try {
+          dirJson = JSON.parse(fs.readFileSync(path.join(directivesDir, file), 'utf-8'));
+        } catch { continue; }
+        if (!dirJson || (dirJson.status !== 'completed' && dirJson.status !== 'done')) continue;
+
+        const fileName = file.toLowerCase().replace('.json', '');
+        for (const kw of keywords) {
+          if (skipWords.includes(kw)) continue;
+          if (fileName.includes(kw)) return true;
+        }
       }
     }
   }
@@ -385,9 +360,9 @@ function launchDirective(work: ReadyWork, projectPath: string): void {
 
   let prompt: string;
   if (work.source === 'inbox') {
-    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Then execute the directive at ${work.path}. Also read /Users/yangyang/Repos/agent-conductor/.context/lessons.md before starting.`;
+    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Then execute the directive at ${work.path}. Also read the lessons in /Users/yangyang/Repos/agent-conductor/.context/lessons/ before starting.`;
   } else {
-    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Also read /Users/yangyang/Repos/agent-conductor/.context/lessons.md. The backlog item "${work.name}" has its trigger met (${work.trigger ?? 'unknown'}). Create a directive for it and execute. Backlog file: ${work.path}`;
+    prompt = `You are Alex Rivera, Chief of Staff. Read your agent definition at ${agentDef} first. Also read the lessons in /Users/yangyang/Repos/agent-conductor/.context/lessons/. The backlog item "${work.name}" has its trigger met (${work.trigger ?? 'unknown'}). Create a directive for it and execute. Backlog file: ${work.path}`;
   }
 
   console.log(`[foreman] Launching: ${work.name} (${work.priority}, ${work.source})`);
