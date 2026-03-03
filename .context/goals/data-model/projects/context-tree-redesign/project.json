@@ -22,43 +22,54 @@
     {
       "id": "t2",
       "title": "Execute agent-conductor migration to new structure",
-      "status": "in_progress",
+      "status": "completed",
       "phase": "build",
-      "agent": null,
+      "agent": "alex",
       "depends_on": ["t1"],
-      "output": null,
+      "output": "3 goals (data-model, workflow-orchestration, ui), 18 projects, 35 directives migrated. Branch: directive/context-tree-redesign",
       "created": "2026-03-03",
-      "completed": null
+      "completed": "2026-03-03"
     },
     {
       "id": "t3",
-      "title": "Update all 6 SKILL.md files to reference new paths",
-      "status": "pending",
+      "title": "Update all 6 SKILL.md files and 8 agent .md files to reference new paths",
+      "status": "completed",
       "phase": "build",
-      "agent": null,
+      "agent": "engineer",
       "depends_on": ["t2"],
-      "output": null,
+      "output": "All 6 SKILL.md + 8 agent files updated. Fixed: lessons.md→lessons/*.md, backlog.md→backlog.json, features/→projects/, intelligence/→intel/",
       "created": "2026-03-03",
-      "completed": null
+      "completed": "2026-03-03"
     },
     {
       "id": "t4",
       "title": "Create CLAUDE.md for agent-conductor repo",
-      "status": "pending",
+      "status": "completed",
       "phase": "build",
-      "agent": null,
+      "agent": "engineer",
       "depends_on": ["t2"],
-      "output": null,
+      "output": "CLAUDE.md created with context tree structure and lessons routing table",
       "created": "2026-03-03",
-      "completed": null
+      "completed": "2026-03-03"
     },
     {
       "id": "t5",
       "title": "Verify migration: entity counts, orphan checks, broken references",
-      "status": "pending",
+      "status": "completed",
       "phase": "test",
-      "agent": "sarah",
+      "agent": "sarah+marcus+morgan",
       "depends_on": ["t2", "t3", "t4"],
+      "output": "3-agent review: Sarah (path audit, 80+ stale refs found+fixed), Marcus (data integrity, PASS), Morgan (SPEC compliance, 3 blocking issues found+fixed)",
+      "created": "2026-03-03",
+      "completed": "2026-03-03"
+    },
+    {
+      "id": "t6",
+      "title": "Migrate sw consumer repo .context/ to new context tree structure",
+      "status": "pending",
+      "phase": "build",
+      "agent": null,
+      "depends_on": ["t5"],
       "output": null,
       "created": "2026-03-03",
       "completed": null
