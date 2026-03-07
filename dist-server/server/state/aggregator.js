@@ -399,8 +399,6 @@ export class Aggregator extends EventEmitter {
         });
     }
     applyPaneMappings() {
-        // teamPaneSessionIds was removed with the teams subsystem — use empty set
-        const teamPaneSessionIds = new Set();
         const statusPriority = {
             'working': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
             'done': 1, 'paused': 1,
@@ -414,6 +412,7 @@ export class Aggregator extends EventEmitter {
             return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
         });
         const assignedPaneIds = new Set();
+        const teamPaneSessionIds = new Set();
         const validItermIds = new Set([...this.paneMapping.byItermSession.values()].map((info) => `iterm:${info.itermId}`));
         for (const session of this.state.sessions) {
             if (session.paneId?.startsWith('iterm:') && validItermIds.has(session.paneId)) {

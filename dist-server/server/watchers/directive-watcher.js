@@ -1,7 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { watch } from 'chokidar';
-import { directivesDir as resolveDirectivesDir } from '../paths.js';
 // Pipeline steps by weight class. Steps not in a weight's list are skipped.
 const FULL_PIPELINE_STEPS = [
     { id: 'triage', label: 'Triage' },
@@ -138,7 +137,7 @@ export class DirectiveWatcher {
     historyCache = new Map();
     constructor(aggregator, _claudeHome) {
         this.aggregator = aggregator;
-        this.directivesDir = resolveDirectivesDir();
+        this.directivesDir = path.join(process.cwd(), '.context', 'directives');
     }
     start() {
         // Read initial state
@@ -232,7 +231,7 @@ export class DirectiveWatcher {
      */
     readActiveDirectives() {
         const all = this.readAllDirectiveStates();
-        const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
+        const activeStatuses = new Set(['in_progress', 'awaiting_completion', 'reopened']);
         return all.filter((d) => activeStatuses.has(d.status));
     }
     /**
@@ -487,7 +486,7 @@ export class DirectiveWatcher {
     readAndUpdate() {
         // Single pass: read all directives once, derive active + best from the result
         const history = this.readAllDirectiveStates();
-        const activeStatuses = new Set(['in_progress', 'awaiting_completion']);
+        const activeStatuses = new Set(['in_progress', 'awaiting_completion', 'reopened']);
         const activeDirectives = history.filter((d) => activeStatuses.has(d.status));
         // Pick the most recently updated active directive as the singular state (backward compat)
         let state = null;

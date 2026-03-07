@@ -52,6 +52,12 @@ export declare class CodexCLISpawnAdapter implements SpawnAdapter {
      * --dangerously-skip-permissions, or --no-session-persistence via CLI
      * flags. Agent instructions come from codex.md, model from config.toml,
      * and sandboxing is on by default.
+     *
+     * TODO: Codex CLI `-q` (quiet) flag verified against OpenAI Codex CLI docs.
+     * If Codex CLI updates its flag interface, this needs re-verification.
+     * The `config.model` field is silently ignored here -- Codex selects model
+     * via config.toml (`model = "..."`) rather than CLI flags. If model override
+     * support is added to Codex CLI in the future, map config.model here.
      */
     private buildArgs;
     /**

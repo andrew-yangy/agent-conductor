@@ -56,8 +56,20 @@ export class Notifier extends EventEmitter {
         this.prevSessions = [...currentSessions];
     };
     getStaleTeamSessionIds() {
-        // Teams subsystem was removed — no stale team sessions
-        return new Set();
+        const staleIds = new Set();
+        const state = this.aggregator.getState();
+        const teams = state.teams ?? [];
+        for (const team of teams) {
+            if (!team.stale)
+                continue;
+            if (team.leadSessionId)
+                staleIds.add(team.leadSessionId);
+            for (const member of team.members ?? []) {
+                if (member.agentId)
+                    staleIds.add(member.agentId);
+            }
+        }
+        return staleIds;
     }
     notify(session) {
         const now = Date.now();

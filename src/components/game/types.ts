@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { AgentRegistry } from '@/stores/agent-registry-store';
+import registryJson from '../../../.claude/agent-registry.json';
 
 /** Agent status derived from session data */
 export type AgentStatus = 'working' | 'idle';
@@ -86,6 +87,9 @@ export function buildAgentCharMap(agents: AgentDesk[]): Record<string, string> {
     })
   );
 }
+
+/** Static OFFICE_AGENTS built from the local agent-registry.json at build time */
+export const OFFICE_AGENTS: AgentDesk[] = buildOfficeAgents(registryJson as AgentRegistry);
 
 /** Interactive tile types the user can click (kept for compat) */
 export const INTERACTIVE_TILES: Set<TileType> = new Set([

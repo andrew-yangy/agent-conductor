@@ -14,6 +14,9 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+// TODO: compilePersonality is a synchronous file-system operation that reads
+// from .claude/agents/{agentId}.md. If the agent file is missing, this will
+// throw. Consider wrapping in try/catch with a descriptive error message.
 import { compilePersonality } from '../../scripts/personality-compiler.js';
 // ---------------------------------------------------------------------------
 // Default PATH augmentation
@@ -81,6 +84,10 @@ export class CodexCLISpawnAdapter {
      * the current working directory. We use the personality compiler to
      * translate the Claude Code agent definition into Codex-compatible format.
      */
+    // TODO: writePersonality overwrites any existing codex.md in the working
+    // directory without backup. If multiple concurrent spawns target the same
+    // cwd with different agentIds, they will race on this file. Consider using
+    // a temp directory or unique filename to avoid conflicts.
     writePersonality(agentId, cwd) {
         const content = compilePersonality(agentId, 'codex');
         const codexMdPath = path.join(cwd, 'codex.md');
@@ -96,9 +103,18 @@ export class CodexCLISpawnAdapter {
      * --dangerously-skip-permissions, or --no-session-persistence via CLI
      * flags. Agent instructions come from codex.md, model from config.toml,
      * and sandboxing is on by default.
+     *
+     * TODO: Codex CLI `-q` (quiet) flag verified against OpenAI Codex CLI docs.
+     * If Codex CLI updates its flag interface, this needs re-verification.
+     * The `config.model` field is silently ignored here -- Codex selects model
+     * via config.toml (`model = "..."`) rather than CLI flags. If model override
+     * support is added to Codex CLI in the future, map config.model here.
      */
     buildArgs(config) {
         const args = ['-q'];
+        // config.model -- not supported via CLI flag; Codex uses config.toml
+        // config.skipPermissions -- not needed; Codex sandboxes by default
+        // config.sessionPersistence -- no CLI control available
         // Prompt is always the final positional argument.
         args.push(config.prompt);
         return args;
