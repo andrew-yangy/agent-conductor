@@ -13,7 +13,8 @@ import { API_BASE } from '@/lib/api';
 import ActivityLine from '@/components/shared/ActivityLine';
 import QuickActions from '@/components/shared/QuickActions';
 import SendInput from '@/components/shared/SendInput';
-import { OFFICE_AGENTS, type AgentStatus } from '../types';
+import { type AgentStatus } from '../types';
+import { useOfficeAgents } from '../useOfficeAgents';
 import {
   statusPriority, shortenModel, StatusChip,
   SectionHeader, PIXEL_CARD, PIXEL_CARD_RAISED,
@@ -73,7 +74,8 @@ interface AgentPanelProps {
 export default function AgentPanel({ agentName, agentStatuses }: AgentPanelProps) {
   const sessions = useDashboardStore((s) => s.sessions);
   const sessionActivities = useDashboardStore((s) => s.sessionActivities);
-  const agent = OFFICE_AGENTS.find((a) => a.agentName === agentName);
+  const officeAgents = useOfficeAgents();
+  const agent = officeAgents.find((a) => a.agentName === agentName);
   const status = agentStatuses[agentName] ?? 'offline';
 
   const { activeSessions, recentIdle } = useMemo(() => {

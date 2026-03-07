@@ -73,19 +73,8 @@ export class Notifier extends EventEmitter {
   };
 
   private getStaleTeamSessionIds(): Set<string> {
-    const staleIds = new Set<string>();
-    const { teams } = this.aggregator.getState();
-
-    for (const team of teams) {
-      if (!team.stale) continue;
-
-      if (team.leadSessionId) staleIds.add(team.leadSessionId);
-      for (const member of team.members) {
-        if (member.agentId) staleIds.add(member.agentId);
-      }
-    }
-
-    return staleIds;
+    // Teams subsystem was removed — no stale team sessions
+    return new Set<string>();
   }
 
   private notify(session: Session): void {

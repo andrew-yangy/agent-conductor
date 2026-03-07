@@ -32,6 +32,7 @@ import type {
   WsMessageType,
 } from '../types.js';
 import type { FullWorkState, WorkItemFilter, WorkItem, FeatureRecord, BacklogRecord } from './work-item-types.js';
+import { consumerRoot } from '../paths.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -160,7 +161,7 @@ export class Aggregator extends EventEmitter {
     super();
     this.config = config;
     this.adapter = adapter ?? null;
-    this.projectFilter = projectDirFromPath(process.cwd());
+    this.projectFilter = projectDirFromPath(consumerRoot);
     this.state = {
       sessions: [],
       projects: [],
@@ -476,6 +477,8 @@ export class Aggregator extends EventEmitter {
   }
 
   private applyPaneMappings(): void {
+    // teamPaneSessionIds was removed with the teams subsystem — use empty set
+    const teamPaneSessionIds = new Set<string>();
     const statusPriority: Record<string, number> = {
       'working': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
       'done': 1, 'paused': 1,

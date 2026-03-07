@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import { OFFICE_AGENTS, type SelectedItem, type InteractionType } from './types';
+import { useAgentRegistryStore } from '@/stores/agent-registry-store';
+import { type SelectedItem, type InteractionType } from './types';
+import { useOfficeAgents } from './useOfficeAgents';
 import type { AgentStatus, SessionInfo } from './pixel-types';
 import GameHeader, { type HudPanel } from './GameHeader';
 import CanvasOffice, { type ClickedItem } from './CanvasOffice';
@@ -9,12 +11,6 @@ import AgentTicker from './AgentTicker';
 import type { TileType } from './types';
 import type { Session, DirectiveState } from '@/stores/types';
 import { getZoneAt } from './engine/roomZones';
-
-// ---------------------------------------------------------------------------
-// Agent name set for O(1) lookup
-// ---------------------------------------------------------------------------
-
-const KNOWN_AGENTS = new Set(OFFICE_AGENTS.map((a) => a.agentName));
 
 /** Capitalize first letter — agent names in project.json are lowercase ("riley") */
 function capitalize(s: string): string {
@@ -152,6 +148,17 @@ function ControlsHint() {
 // ---------------------------------------------------------------------------
 
 export default function GamePage() {
+  // Fetch agent registry on mount
+  const fetchRegistry = useAgentRegistryStore((s) => s.fetchRegistry);
+  useEffect(() => { fetchRegistry(); }, [fetchRegistry]);
+
+  const OFFICE_AGENTS = useOfficeAgents();
+  const KNOWN_AGENTS = useMemo(() => new Set(OFFICE_AGENTS.map((a) => a.agentName)), [OFFICE_AGENTS]);
+
+  // Keep a ref for use in callbacks that shouldn't re-create on agents change
+  const officeAgentsRef = useRef(OFFICE_AGENTS);
+  officeAgentsRef.current = OFFICE_AGENTS;
+
   const sessions = useDashboardStore((s) => s.sessions);
   const sessionActivities = useDashboardStore((s) => s.sessionActivities);
   const [selected, setSelected] = useState<SelectedItem | null>(null);
@@ -214,7 +221,7 @@ export default function GamePage() {
       }
     }
     return map;
-  }, [sessions, activeDirectives]);
+  }, [sessions, activeDirectives, KNOWN_AGENTS]);
 
   // Build agent → task title map from directive pipeline (authoritative source)
   const directiveTaskNames = useMemo<Record<string, string>>(() => {
@@ -251,7 +258,7 @@ export default function GamePage() {
       }
     }
     return map;
-  }, [activeDirectives]);
+  }, [activeDirectives, KNOWN_AGENTS]);
 
   // Derive per-agent session context info (prefer working session's activity)
   const agentSessionInfos = useMemo<Record<string, SessionInfo>>(() => {
@@ -288,7 +295,7 @@ export default function GamePage() {
       if (directiveTaskNames[name]) map[name].taskName = directiveTaskNames[name];
     }
     return map;
-  }, [sessions, sessionActivities, directiveTaskNames]);
+  }, [sessions, sessionActivities, directiveTaskNames, KNOWN_AGENTS]);
 
   // Derive per-agent busy flag
   const agentBusyMap = useMemo<Record<string, boolean>>(() => {
@@ -306,7 +313,7 @@ export default function GamePage() {
       map[name] = (counts[name] ?? 0) > 1;
     }
     return map;
-  }, [sessions]);
+  }, [sessions, KNOWN_AGENTS]);
 
   const { agentInteractions, subagentsByParent } = useMemo(() => {
     const pairs: Array<[string, string, InteractionType]> = [];
@@ -425,7 +432,7 @@ export default function GamePage() {
     }
 
     return { agentInteractions: pairs, subagentsByParent: byParent };
-  }, [activeDirectives]);
+  }, [activeDirectives, KNOWN_AGENTS]);
 
   // Derive review interactions from directive state
   // Maps reviewer → builder for "walk to builder's desk" behavior
@@ -455,7 +462,7 @@ export default function GamePage() {
       }
     }
     return map;
-  }, [activeDirectives]);
+  }, [activeDirectives, KNOWN_AGENTS]);
 
   // Handle agent click from canvas
   const handleAgentClick = useCallback((agentName: string) => {
@@ -471,7 +478,7 @@ export default function GamePage() {
       return;
     }
 
-    const agent = OFFICE_AGENTS.find((a) => a.agentName === agentName);
+    const agent = officeAgentsRef.current.find((a: { agentName: string }) => a.agentName === agentName);
     if (agent) {
       setSelected({
         type: 'desk',
@@ -571,12 +578,13 @@ export default function GamePage() {
         gameContainerRef={gameContainerRef}
         activePanel={activePanel}
         workingCount={Object.values(agentStatuses).filter((s) => s === 'working').length}
-        staffCount={OFFICE_AGENTS.filter((a) => !a.isPlayer).length}
+        staffCount={OFFICE_AGENTS.filter((a: { isPlayer: boolean }) => !a.isPlayer).length}
       />
 
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-h-0 overflow-auto bg-stone-200 dark:bg-stone-950 relative">
           <CanvasOffice
+            agents={OFFICE_AGENTS}
             onAgentClick={handleAgentClick}
             onItemClick={handleItemClick}
             agentStatuses={agentStatuses}

@@ -1,0 +1,42 @@
+{
+  "directive_id": "centralize-error-handling",
+  "files_modified": [
+    "server/routes/users.js",
+    "server/routes/tasks.js",
+    "server/routes/projects.js",
+    "server/index.js"
+  ],
+  "files_created": [
+    "server/middleware/errorHandler.js"
+  ],
+  "files_deleted": [],
+  "expected_patterns": [
+    {
+      "file": "server/middleware/errorHandler.js",
+      "pattern": "(err,\\s*req,\\s*res,\\s*next|function\\s+errorHandler)",
+      "description": "Error handler middleware with standard Express 4-param signature"
+    },
+    {
+      "file": "server/index.js",
+      "pattern": "(errorHandler|error-handler|error_handler)",
+      "description": "Main app file imports and registers the error handler"
+    }
+  ],
+  "unexpected_patterns": [
+    {
+      "file": "server/routes/users.js",
+      "pattern": "res\\.status\\(500\\)\\.json\\(\\{\\s*error:\\s*'Internal server error'",
+      "description": "Inline 500 error responses should be removed from route files"
+    },
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "res\\.status\\(500\\)\\.json\\(\\{\\s*error:\\s*'Internal server error'",
+      "description": "Inline 500 error responses should be removed from route files"
+    },
+    {
+      "file": "server/routes/projects.js",
+      "pattern": "res\\.status\\(500\\)\\.json\\(\\{\\s*error:\\s*'Internal server error'",
+      "description": "Inline 500 error responses should be removed from route files"
+    }
+  ]
+}

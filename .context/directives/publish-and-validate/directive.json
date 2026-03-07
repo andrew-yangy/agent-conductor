@@ -1,0 +1,148 @@
+{
+  "id": "publish-and-validate",
+  "title": "Publish & Validate — End-to-End Publish-Readiness",
+  "status": "in_progress",
+  "weight": "strategic",
+  "created_at": "2026-03-08T00:00:00Z",
+  "updated_at": "2026-03-08T02:20:00Z",
+  "current_step": "setup",
+  "pipeline": {
+    "triage": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Classified as strategic. Crosses every boundary (pipeline, agents, platform, install flow, testing). Multiple valid approaches need brainstorm.",
+        "weight": "strategic"
+      }
+    },
+    "checkpoint": {
+      "status": "skipped"
+    },
+    "read": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Directive file created. Scope: fresh repo validation, benchmark app, multi-platform testing, custom team testing, pipeline integrity."
+      }
+    },
+    "context": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Full context loaded: vision.md, lessons, 80+ directives scanned, 6 prior related directives reviewed."
+      }
+    },
+    "challenge": {
+      "status": "completed",
+      "agent": "COO (inline)",
+      "output": {
+        "summary": "COO inline challenge: 3 risks (path resolution blast radius, CLI is net-new, custom teams need refactoring). Recommendation: simplify CLI to readline, dashboard launch = print instructions, Codex = smoke test. CEO overrode: dashboard NOT optional, expanded to 4 platforms (CC + Aider + Gemini + Codex)."
+      }
+    },
+    "brainstorm": {
+      "status": "completed",
+      "agent": "Sarah Chen, Marcus Rivera, Morgan Park",
+      "output": {
+        "summary": "Phase 1 + Phase 2 deliberation. Convergence on path resolution, copy-to-consumer, sequential layers. Sarah vs Marcus on dashboard packaging — CEO resolved: ship the game, not optional. CEO added: .gruai/ canonical dir, symlinks for platform-specific."
+      },
+      "artifacts": [
+        ".context/directives/publish-and-validate/brainstorm.md"
+      ]
+    },
+    "plan": {
+      "status": "completed",
+      "agent": "COO",
+      "output": {
+        "summary": "7 projects after CEO revision: P0 path-resolution (Devon), P0 cli-entrypoint (Jordan), P0 benchmark-fixture (Sam), P1 dashboard-packaging (Riley), P1 custom-team-sizes (Devon), P0 e2e-validation (Sam), P1 multi-platform-validation (Devon). Waves: 1=[path-res+fixture], 2=[CLI+dashboard], 3=[team-sizes], 4=[E2E], 5=[multi-platform].",
+        "projects": [
+          "path-resolution-and-packaging",
+          "cli-entrypoint",
+          "benchmark-fixture",
+          "dashboard-packaging",
+          "custom-team-sizes",
+          "end-to-end-validation",
+          "multi-platform-validation"
+        ]
+      },
+      "artifacts": [
+        ".context/directives/publish-and-validate/plan.json"
+      ]
+    },
+    "audit": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "Skipped formal two-agent audit — brainstorm phase already included deep codebase investigation by Sarah (CTO). Key findings already captured: hooks missing from files array, template path resolution broken, dist/dist-server coupling. CEO directed zero-trust posture — E2E validation will serve as the real audit."
+      }
+    },
+    "approve": {
+      "status": "completed",
+      "agent": "CEO",
+      "output": {
+        "summary": "CEO approved revised 7-project plan. Key decisions: ship game (not optional), npx gru-ai as primary install, .gruai/ canonical dir, Starter/Standard/Full/Custom team presets, 4 platforms (CC+Aider+Gemini+Codex), zero-trust on prior adapter work, benchmark fixture for repeatable testing.",
+        "decision": "approved"
+      }
+    },
+    "project-brainstorm": {
+      "status": "completed",
+      "agent": "Sarah Chen (CTO)",
+      "output": {
+        "summary": "CTO decomposed all 7 projects into 30 total tasks. path-resolution (4 tasks), cli-entrypoint (5 tasks), benchmark-fixture (4 tasks), dashboard-packaging (4 tasks), custom-team-sizes (3 tasks), e2e-validation (6 tasks), multi-platform (4 tasks). All project.json files validated with validate-project-json.sh.",
+        "total_tasks": 30,
+        "projects_decomposed": 7
+      },
+      "artifacts": [
+        ".context/directives/publish-and-validate/projects/path-resolution-and-packaging/project.json",
+        ".context/directives/publish-and-validate/projects/cli-entrypoint/project.json",
+        ".context/directives/publish-and-validate/projects/benchmark-fixture/project.json",
+        ".context/directives/publish-and-validate/projects/dashboard-packaging/project.json",
+        ".context/directives/publish-and-validate/projects/custom-team-sizes/project.json",
+        ".context/directives/publish-and-validate/projects/end-to-end-validation/project.json",
+        ".context/directives/publish-and-validate/projects/multi-platform-validation/project.json"
+      ]
+    },
+    "setup": {
+      "status": "active"
+    },
+    "execute": {
+      "status": "pending"
+    },
+    "review-gate": {
+      "status": "pending"
+    },
+    "wrapup": {
+      "status": "pending"
+    },
+    "completion": {
+      "status": "pending"
+    }
+  },
+  "planning": {
+    "coo_plan": {
+      "artifact": "plan.json"
+    },
+    "ceo_approval": {
+      "status": "approved",
+      "modifications": [
+        "Dashboard NOT optional (overrode Morgan's --no-dashboard flag)",
+        "Expanded from 2 platforms to 4 (added Aider, Gemini CLI)",
+        "Added benchmark-fixture project",
+        "Zero-trust posture on all prior adapter work",
+        "Replaced codex-cli-smoke-test with broader multi-platform-validation"
+      ]
+    }
+  },
+  "gates": {
+    "triage": {
+      "passed_at": "2026-03-07T22:06:34Z",
+      "validated_artifacts": []
+    },
+    "read": {
+      "passed_at": "2026-03-07T22:06:34Z",
+      "validated_artifacts": [
+        "directive.json:.weight",
+        "directive.json:.pipeline.triage.status"
+      ]
+    }
+  }
+}

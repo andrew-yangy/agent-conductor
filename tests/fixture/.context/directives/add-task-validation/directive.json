@@ -1,0 +1,24 @@
+{
+  "id": "add-task-validation",
+  "title": "Add Input Validation to Task Creation Endpoint",
+  "status": "pending",
+  "weight": "medium",
+  "created_at": "2026-03-08T00:00:00Z",
+  "updated_at": "2026-03-08T00:00:00Z",
+  "current_step": "triage",
+  "pipeline": {
+    "triage": { "status": "pending" },
+    "read": { "status": "pending" },
+    "context": { "status": "pending" },
+    "challenge": { "status": "pending" },
+    "plan": { "status": "pending" },
+    "audit": { "status": "pending" },
+    "approve": { "status": "pending" },
+    "project-brainstorm": { "status": "pending" },
+    "setup": { "status": "pending" },
+    "execute": { "status": "pending" },
+    "review-gate": { "status": "pending" },
+    "wrapup": { "status": "pending" },
+    "completion": { "status": "pending" }
+  }
+}

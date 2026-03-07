@@ -1,0 +1,23 @@
+{
+  "id": "fix-pagination-bug",
+  "title": "Fix Off-by-One Pagination Bug in Users Route",
+  "status": "pending",
+  "weight": "lightweight",
+  "created_at": "2026-03-08T00:00:00Z",
+  "updated_at": "2026-03-08T00:00:00Z",
+  "current_step": "triage",
+  "pipeline": {
+    "triage": { "status": "pending" },
+    "read": { "status": "pending" },
+    "context": { "status": "pending" },
+    "plan": { "status": "pending" },
+    "audit": { "status": "pending" },
+    "approve": { "status": "pending" },
+    "project-brainstorm": { "status": "pending" },
+    "setup": { "status": "pending" },
+    "execute": { "status": "pending" },
+    "review-gate": { "status": "pending" },
+    "wrapup": { "status": "pending" },
+    "completion": { "status": "pending" }
+  }
+}

@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { useState, useEffect, useMemo } from 'react';
-import { OFFICE_AGENTS } from './types';
+import { useOfficeAgents } from './useOfficeAgents';
 import type { AgentStatus, SessionInfo } from './pixel-types';
 
 // ---------------------------------------------------------------------------
@@ -37,13 +37,16 @@ interface AgentTickerProps {
 // Build color map once
 // ---------------------------------------------------------------------------
 
-const AGENT_COLOR_MAP = new Map(OFFICE_AGENTS.map((a) => [a.agentName, a.color]));
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function AgentTicker({ agentStatuses, agentSessionInfos }: AgentTickerProps) {
+  const officeAgents = useOfficeAgents();
+  const AGENT_COLOR_MAP = useMemo(
+    () => new Map(officeAgents.map((a) => [a.agentName, a.color])),
+    [officeAgents],
+  );
   const entries = useMemo<TickerEntry[]>(() => {
     const result: TickerEntry[] = [];
     for (const [name, status] of Object.entries(agentStatuses)) {

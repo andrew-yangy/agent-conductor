@@ -1,0 +1,22 @@
+{
+  "directive_id": "fix-url-encoding",
+  "files_modified": [
+    "src/api/client.js"
+  ],
+  "files_created": [],
+  "files_deleted": [],
+  "expected_patterns": [
+    {
+      "file": "src/api/client.js",
+      "pattern": "(URLSearchParams|encodeURIComponent)",
+      "description": "Uses proper URL encoding mechanism for query parameters"
+    }
+  ],
+  "unexpected_patterns": [
+    {
+      "file": "src/api/client.js",
+      "pattern": "\\?project_id=\\$\\{projectId\\}",
+      "description": "Raw string interpolation of projectId should be replaced with encoded version"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "directive_id": "add-task-validation",
+  "files_modified": [
+    "server/routes/tasks.js"
+  ],
+  "files_created": [],
+  "files_deleted": [],
+  "expected_patterns": [
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "(!title|title\\s*===?\\s*['\"]|!req\\.body\\.title)",
+      "description": "Validation check that title is present and non-empty"
+    },
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "(!project_id|!req\\.body\\.project_id|project_id.*required|project.*not found|project.*exist)",
+      "description": "Validation checks that project_id is present or references a valid project"
+    },
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "res\\.status\\(400\\)",
+      "description": "Returns 400 status code for validation errors"
+    }
+  ]
+}

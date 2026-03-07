@@ -17,8 +17,6 @@ export declare class Aggregator extends EventEmitter {
     getState(): DashboardState;
     getActiveSessions(): Session[];
     initialize(): void;
-    refreshTeams(): void;
-    refreshTasks(teamName?: string): void;
     refreshAll(): void;
     updateDirectiveState(directiveState: DirectiveState | null, directiveHistory?: DirectiveState[], activeDirectives?: DirectiveState[]): void;
     updateWorkState(workState: FullWorkState): void;

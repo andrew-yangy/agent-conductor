@@ -1,14 +1,13 @@
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
-import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { parseAllTeams } from '../parsers/team-parser.js';
-import { parseAllTeamTasks, parseAllTasks } from '../parsers/task-parser.js';
+import { parseAllTasks } from '../parsers/task-parser.js';
 import { initializeAllFileStates as initializeAllFileStatesRaw, discoverSessionFiles as discoverSessionFilesRaw, getAllFileStates as getAllFileStatesRaw, getOrBootstrap as getOrBootstrapRaw, removeFileState as removeFileStateRaw, machineStateToLastEntryType, toSessionActivity, } from '../parsers/session-state.js';
 import { projectDirFromPath } from '../parsers/session-scanner.js';
 import { discoverClaudePanes } from '../parsers/process-discovery.js';
 import { getRecentEvents } from '../db.js';
+import { consumerRoot } from '../paths.js';
 const execFileAsync = promisify(execFile);
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -118,12 +117,10 @@ export class Aggregator extends EventEmitter {
         super();
         this.config = config;
         this.adapter = adapter ?? null;
-        this.projectFilter = projectDirFromPath(process.cwd());
+        this.projectFilter = projectDirFromPath(consumerRoot);
         this.state = {
-            teams: [],
             sessions: [],
             projects: [],
-            tasksByTeam: {},
             tasksBySession: {},
             events: [],
             sessionActivities: {},
@@ -144,9 +141,7 @@ export class Aggregator extends EventEmitter {
     }
     initialize() {
         console.log('[aggregator] Initializing state from filesystem...');
-        const teams = parseAllTeams(this.config.claudeHome);
-        const teamNameSet = new Set(teams.map((t) => t.name));
-        const { byTeam: tasksByTeam, bySession: tasksBySession } = parseAllTasks(this.config.claudeHome, teamNameSet);
+        const { bySession: tasksBySession } = parseAllTasks(this.config.claudeHome, new Set());
         const events = getRecentEvents(200);
         // Bootstrap all session file states (incremental parser) — scoped to this project
         console.log(`[aggregator] Session scope: ${this.projectFilter}`);
@@ -155,20 +150,10 @@ export class Aggregator extends EventEmitter {
             : initializeAllFileStatesRaw(this.config.claudeHome, this.projectFilter);
         // Build sessions from file states + hook events
         const { sessions, projects } = this.buildSessionsFromFileStates(events);
-        for (const team of teams) {
-            if (team.leadSessionId) {
-                const session = sessions.find((s) => s.id === team.leadSessionId);
-                if (session) {
-                    session.feature = `lead:${team.name}`;
-                }
-            }
-        }
         const sessionActivities = this.buildSessionActivities();
         this.state = {
-            teams,
             sessions,
             projects,
-            tasksByTeam,
             tasksBySession,
             events,
             sessionActivities,
@@ -177,36 +162,14 @@ export class Aggregator extends EventEmitter {
             activeDirectives: [],
             lastUpdated: new Date().toISOString(),
         };
-        const totalTasks = Object.values(tasksByTeam).reduce((sum, t) => sum + t.length, 0);
         const activeSessions = sessions.filter((s) => s.status === 'working').length;
-        console.log(`[aggregator] Initialized: ${teams.length} teams, ${totalTasks} tasks, ${events.length} events, ${sessions.length} sessions (${activeSessions} active), ${projects.length} projects`);
+        console.log(`[aggregator] Initialized: ${events.length} events, ${sessions.length} sessions (${activeSessions} active), ${projects.length} projects`);
         this.refreshProcessDiscovery();
         this.discoveryTimer = setInterval(() => this.refreshProcessDiscovery(), 30_000);
         this.detectStaleness();
         this.staleTimer = setInterval(() => this.detectStaleness(), 60_000);
     }
-    refreshTeams() {
-        this.state.teams = parseAllTeams(this.config.claudeHome);
-        this.state.lastUpdated = new Date().toISOString();
-        this.emitChange('teams_updated');
-    }
-    refreshTasks(teamName) {
-        if (teamName) {
-            const tasks = parseAllTeamTasks(this.config.claudeHome, [teamName]);
-            this.state.tasksByTeam[teamName] = tasks[teamName] ?? [];
-        }
-        else {
-            const teamNameSet = new Set(this.state.teams.map((t) => t.name));
-            const { byTeam, bySession } = parseAllTasks(this.config.claudeHome, teamNameSet);
-            this.state.tasksByTeam = byTeam;
-            this.state.tasksBySession = bySession;
-        }
-        this.state.lastUpdated = new Date().toISOString();
-        this.emitChange('tasks_updated');
-    }
     refreshAll() {
-        this.refreshTeams();
-        this.refreshTasks();
         this.refreshSessions();
     }
     updateDirectiveState(directiveState, directiveHistory, activeDirectives) {
@@ -252,11 +215,9 @@ export class Aggregator extends EventEmitter {
                 return false;
             if (filters.status && item.status !== filters.status)
                 return false;
-            if (filters.category && item.category !== filters.category)
-                return false;
             if (filters.q) {
                 const q = filters.q.toLowerCase();
-                const searchable = `${item.title} ${item.id} ${item.category ?? ''}`.toLowerCase();
+                const searchable = `${item.title} ${item.id}`.toLowerCase();
                 if (!searchable.includes(q))
                     return false;
             }
@@ -289,14 +250,6 @@ export class Aggregator extends EventEmitter {
         }
         this.discoveredFiles = newDiscovered;
         const { sessions, projects } = this.buildSessionsFromFileStates(this.state.events);
-        for (const team of this.state.teams) {
-            if (team.leadSessionId) {
-                const session = sessions.find((s) => s.id === team.leadSessionId);
-                if (session) {
-                    session.feature = `lead:${team.name}`;
-                }
-            }
-        }
         // Carry over paneIds from previous sessions to preserve stable assignments
         const prevPaneIds = new Map();
         for (const s of this.state.sessions) {
@@ -446,18 +399,8 @@ export class Aggregator extends EventEmitter {
         });
     }
     applyPaneMappings() {
+        // teamPaneSessionIds was removed with the teams subsystem — use empty set
         const teamPaneSessionIds = new Set();
-        for (const team of this.state.teams) {
-            for (const member of team.members) {
-                if (member.agentId && member.tmuxPaneId) {
-                    teamPaneSessionIds.add(member.agentId);
-                }
-            }
-        }
-        const sessionToTasksDir = new Map();
-        for (const [dirName] of Object.entries(this.state.tasksBySession)) {
-            sessionToTasksDir.set(dirName, dirName);
-        }
         const statusPriority = {
             'working': 0, 'waiting-approval': 0, 'waiting-input': 0, 'error': 0,
             'done': 1, 'paused': 1,
@@ -857,44 +800,6 @@ export class Aggregator extends EventEmitter {
     detectStaleness() {
         // Re-derive session statuses based on current time tiers
         this.rederiveSessionStatuses();
-        this.getLivePaneIds().then((livePanes) => {
-            let changed = false;
-            for (const team of this.state.teams) {
-                const allInactive = team.members.length > 0 && team.members.every((m) => !m.isActive);
-                const configPath = path.join(this.config.claudeHome, 'teams', team.name, 'config.json');
-                let configStale = false;
-                try {
-                    const stat = fs.statSync(configPath);
-                    configStale = Date.now() - stat.mtimeMs > 2 * 60 * 60 * 1000;
-                }
-                catch {
-                    configStale = true;
-                }
-                const memberSessionIds = new Set();
-                if (team.leadSessionId) {
-                    memberSessionIds.add(team.leadSessionId);
-                    const leadSession = this.state.sessions.find((s) => s.id === team.leadSessionId);
-                    if (leadSession) {
-                        for (const subId of leadSession.subagentIds) {
-                            memberSessionIds.add(subId);
-                        }
-                    }
-                }
-                const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-                const hasRecentEvents = this.state.events.some((e) => memberSessionIds.has(e.sessionId) && new Date(e.timestamp).getTime() > twoHoursAgo);
-                const allPanesGone = team.members.length > 0 && team.members.every((m) => !m.tmuxPaneId || !livePanes.has(m.tmuxPaneId));
-                const stale = (allInactive || allPanesGone) && configStale && !hasRecentEvents;
-                if (team.stale !== stale) {
-                    team.stale = stale;
-                    changed = true;
-                }
-            }
-            if (changed) {
-                this.emitChange('teams_updated');
-            }
-        }).catch((err) => {
-            console.error('[aggregator] Error in stale detection:', err);
-        });
     }
     destroy() {
         if (this.staleTimer) {

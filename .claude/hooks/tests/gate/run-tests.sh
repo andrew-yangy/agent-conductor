@@ -131,9 +131,9 @@ run_test \
   "true"
 
 run_test \
-  "review gate passes for task-1 (build-task-1.md exists)" \
+  "review-gate passes for task-1 (build-task-1.md exists)" \
   "$SCRIPT_DIR/02-valid-heavyweight" \
-  "review" \
+  "review-gate" \
   "true" \
   "task-1"
 
@@ -196,9 +196,9 @@ echo ""
 echo "06: Missing build artifact blocks review"
 
 run_test \
-  "review gate fails for task 'widget' (no build-widget.md)" \
+  "review-gate fails for task 'widget' (no build-widget.md)" \
   "$SCRIPT_DIR/06-fail-missing-build" \
-  "review" \
+  "review-gate" \
   "false" \
   "widget" \
   "Missing build artifact"

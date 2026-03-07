@@ -27,7 +27,7 @@ export declare class ClaudeCodeAdapter implements PlatformAdapter {
     toSessionActivity(state: SessionFileState): SessionActivity | null;
     getAgentState(state: SessionFileState): AgentState;
     createSessionWatcher(aggregator: AggregatorHandle, projectFilter?: string): SessionWatcherInterface;
-    createMetadataWatcher(aggregator: AggregatorHandle): MetadataWatcherInterface | null;
+    createMetadataWatcher(_aggregator: AggregatorHandle): MetadataWatcherInterface | null;
     discoverProjects(): ProjectConfig[];
     loadConfig(): ConductorConfig;
     getPlatformCapabilities(): PlatformCapabilities;

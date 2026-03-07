@@ -211,7 +211,3 @@ export function loadConfig() {
         };
     }
 }
-export function saveConfig(config) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
-}

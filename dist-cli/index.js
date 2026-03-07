@@ -1,23 +1,28 @@
 #!/usr/bin/env node
 import { runInit } from './commands/init.js';
+import { runStart } from './commands/start.js';
 import { runUpdate } from './commands/update.js';
+import { c } from './lib/color.js';
+const VERSION = '0.1.0';
 const args = process.argv.slice(2);
 const command = args[0];
 function printUsage() {
     console.log(`
-gruai — Autonomous AI company framework
+${c.bold('gruai')} ${c.dim(`v${VERSION}`)} — Autonomous AI company framework
 
-Usage:
-  gruai <command> [options]
+${c.bold('Usage:')}
+  gru-ai <command> [options]
 
-Commands:
-  init      Scaffold gruai into a project
-  update    Update framework files to latest version
+${c.bold('Commands:')}
+  ${c.cyan('init')}      Scaffold gruai into a project (interactive setup)
+  ${c.cyan('start')}     Launch the dashboard server
+  ${c.cyan('update')}    Update framework files to latest version
 
-Options:
-  --help  Show this help message
+${c.bold('Options:')}
+  --help     Show this help message
+  --version  Show version number
 
-Run 'gruai <command> --help' for command-specific options.
+Run ${c.dim("'gru-ai <command> --help'")} for command-specific options.
 `);
 }
 function parseFlags(argv) {
@@ -43,20 +48,28 @@ async function main() {
         printUsage();
         process.exit(0);
     }
+    if (command === '--version' || command === '-v') {
+        console.log(VERSION);
+        process.exit(0);
+    }
     const flags = parseFlags(args.slice(1));
-    if (command === 'init') {
-        await runInit(flags);
-    }
-    else if (command === 'update') {
-        await runUpdate(flags);
-    }
-    else {
-        console.error(`Unknown command: ${command}`);
-        printUsage();
-        process.exit(1);
+    switch (command) {
+        case 'init':
+            await runInit(flags);
+            break;
+        case 'start':
+            await runStart(flags);
+            break;
+        case 'update':
+            await runUpdate(flags);
+            break;
+        default:
+            console.error(c.red(`Unknown command: ${command}`));
+            printUsage();
+            process.exit(1);
     }
 }
 main().catch((err) => {
-    console.error('Fatal error:', err instanceof Error ? err.message : String(err));
+    console.error(c.red('Fatal error:'), err instanceof Error ? err.message : String(err));
     process.exit(1);
 });

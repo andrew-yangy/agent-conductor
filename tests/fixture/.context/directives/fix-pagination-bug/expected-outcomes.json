@@ -1,0 +1,22 @@
+{
+  "directive_id": "fix-pagination-bug",
+  "files_modified": [
+    "server/routes/users.js"
+  ],
+  "files_created": [],
+  "files_deleted": [],
+  "expected_patterns": [
+    {
+      "file": "server/routes/users.js",
+      "pattern": "offset\\s*=\\s*\\(page\\s*-\\s*1\\)\\s*\\*\\s*limit",
+      "description": "Offset assignment uses (page - 1) * limit instead of page * limit"
+    }
+  ],
+  "unexpected_patterns": [
+    {
+      "file": "server/routes/users.js",
+      "pattern": "const offset = page \\* limit;",
+      "description": "Original buggy offset calculation should be removed"
+    }
+  ]
+}

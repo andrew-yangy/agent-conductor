@@ -1,6 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 const PROMPT_TAIL_SIZE = 65536;
 const HEAD_SIZE = 16384;
 export function projectLabel(dirName) {
@@ -51,6 +49,15 @@ export function cleanPromptText(raw) {
             continue;
         if (line.startsWith('Caveat:'))
             continue;
+        // Skip directive-style preambles
+        if (/^(Execute|Complete|Implement|Perform|Run)\s+(all\s+)?\d*\s*(tasks?|items?|steps?)\s+(below|listed|described|following)/i.test(line))
+            continue;
+        if (/^The CEO\s/i.test(line))
+            continue;
+        if (/^You are being spawned/i.test(line))
+            continue;
+        if (/^You have \d+\s*(sequential\s+)?tasks?/i.test(line))
+            continue;
         if (line.startsWith('# Plan:') || line.startsWith('## ')) {
             line = line.replace(/^#+ (?:Plan:\s*)?/, '').trim();
             if (!line)
@@ -97,14 +104,14 @@ export function extractInitialPrompt(filepath) {
 }
 // --- Named agent detection ---
 /** Known named agents in the conductor system (loaded from agent-registry.json) */
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const registryPath = path.resolve(__dirname, '../../.claude/agent-registry.json');
-const registryData = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
+import { loadAgentRegistry } from '../paths.js';
+const registryData = loadAgentRegistry();
 const KNOWN_AGENTS = {};
 for (const agent of registryData.agents) {
-    if (agent.id !== 'ceo') {
-        KNOWN_AGENTS[agent.id] = { name: agent.name.split(' ')[0], role: agent.role };
-    }
+    if (!agent.id || !agent.name || agent.id === 'ceo')
+        continue;
+    const firstName = typeof agent.name === 'string' ? agent.name.split(' ')[0] : String(agent.name);
+    KNOWN_AGENTS[agent.id] = { name: firstName, role: agent.role ?? 'Agent' };
 }
 // Generic roles (from subagent_type, not personality-driven -- not in registry)
 KNOWN_AGENTS['builder'] = { name: 'Builder', role: 'Engineer' };

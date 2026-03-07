@@ -1,0 +1,76 @@
+{
+  "id": "custom-team-sizes",
+  "title": "Variable Team Size Support",
+  "status": "completed",
+  "priority": "P1",
+  "agent": ["devon"],
+  "reviewers": ["marcus"],
+  "description": "Refactor /gruai-agents skill and CLI scaffolding to support Starter (4: COO+CTO+FS+CEO), Standard (7: +CPO+FE+BE+QA), Full (11: all roles), Custom (pick from role list, minimum COO+CTO+1 builder enforced). Agent-registry.json handles variable teams. Game dashboard renders partial teams gracefully.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["/gruai-agents skill refactor", "CLI scaffold team presets", "agent-registry.json variable teams", "team definitions", "game dashboard partial teams"],
+    "out": ["new agent roles", "new team types"]
+  },
+  "dod": [
+    { "criterion": "/gruai-agents supports Starter (4), Standard (7), Full (11), and Custom team presets with minimum enforcement", "met": true },
+    { "criterion": "agent-registry.json correctly represents variable team sizes with dynamic team membership", "met": true },
+    { "criterion": "Game dashboard renders partial teams gracefully with empty seats for missing agents", "met": true }
+  ],
+  "browser_test": true,
+  "tasks": [
+    {
+      "id": "team-presets-and-skill",
+      "title": "Add team size presets and validation to /gruai-agents skill",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["devon"],
+      "user_scenario": "When running /gruai-agents, the user picks a team size (Starter/Standard/Full/Custom) and gets exactly that many agents scaffolded with validated minimum requirements.",
+      "scope": "Refactor SKILL.md to prompt for team size before generating agents. Define four presets: Starter (4), Standard (7), Full (11), Custom. Enforce minimum: COO+CTO+1 builder.",
+      "dod": [
+        { "criterion": "SKILL.md Step 1 includes a team-size selection prompt with Starter (4), Standard (7), Full (11), and Custom options", "met": true },
+        { "criterion": "Starter preset includes exactly CEO, COO, CTO, FS roles; Standard adds CPO, FE, BE, QA; Full adds DE, UX, CB", "met": true },
+        { "criterion": "Custom mode enforces minimum of COO + CTO + at least 1 builder role, rejecting invalid selections", "met": true },
+        { "criterion": "Steps 3, 5, and 6 reference the selected team size and only generate entries for chosen agents", "met": true }
+      ]
+    },
+    {
+      "id": "registry-variable-teams",
+      "title": "Make agent-registry.json and team definitions handle variable membership",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["devon"],
+      "user_scenario": "A Starter team's agent-registry.json contains only 4 agents and correctly-populated teams with only present members.",
+      "scope": "Update SKILL.md Step 3 to generate variable-sized registries. Only include selected agents, dynamically build team definitions, omit empty teams, add teamSize field to registry root.",
+      "dod": [
+        { "criterion": "SKILL.md Step 3 generates agents array with only selected-role agents plus CEO", "met": true },
+        { "criterion": "Teams with zero present members are omitted from the teams array entirely", "met": true },
+        { "criterion": "Teams with a missing lead agent fall back to the first available member as lead", "met": true },
+        { "criterion": "A top-level 'teamSize' field (starter|standard|full|custom) is added to the registry schema", "met": true },
+        { "criterion": "gruai.config.json agents array matches the variable team (Step 6 updated)", "met": true }
+      ]
+    },
+    {
+      "id": "game-partial-teams",
+      "title": "Game dashboard renders partial teams gracefully",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["devon"],
+      "user_scenario": "A user with a 4-agent Starter team sees their pixel-art office with only 4 characters at desks — empty seats show as unoccupied furniture.",
+      "scope": "Harden game rendering for partial teams. Verify OFFICE_AGENTS filters correctly, TeamPanel handles missing teams, GameHeader staffCount works with variable counts, CanvasOffice handles fewer agents.",
+      "dod": [
+        { "criterion": "types.ts OFFICE_AGENTS correctly produces a 4-agent array when only 4 agents have game fields in registry", "met": true },
+        { "criterion": "TeamPanel.tsx skips teams with zero present members and filters memberAgentIds to only show agents that exist", "met": true },
+        { "criterion": "GameHeader staffCount displays correct count with no hardcoded assumptions", "met": true },
+        { "criterion": "CanvasOffice.tsx addAgent loop works with any number of OFFICE_AGENTS entries without errors", "met": true }
+      ]
+    }
+  ],
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T03:00:00Z"
+}

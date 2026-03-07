@@ -1,0 +1,93 @@
+{
+  "id": "path-resolution-and-packaging",
+  "title": "Fix path resolution for portable installation",
+  "status": "completed",
+  "priority": "P0",
+  "agent": ["devon"],
+  "reviewers": ["sarah"],
+  "description": "Fix the foundational blocker: all skills, hooks, and pipeline docs that reference cli/templates/, .claude/hooks/, or .claude/skills/ relative to CWD must resolve correctly when gruai is installed as npm package. Add hooks to package.json files array. Create .gruai/ as canonical home with symlinks to platform-specific dirs. Replace hardcoded path assumptions with package-relative resolution.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["package.json files array", "skill path resolution", "hook path resolution", "pipeline doc path resolution", ".gruai/ canonical home", "symlinks for platform dirs"],
+    "out": ["CLI entrypoint", "dashboard packaging"]
+  },
+  "dod": [
+    { "criterion": "package.json files array includes .claude/hooks/ and all 5 validation scripts appear in npm pack --dry-run output", "met": true },
+    { "criterion": "Skills and pipeline docs resolve package-bundled file paths correctly both when installed via npm and when running from source", "met": true },
+    { "criterion": "gruai-config copies hooks to consumer .claude/hooks/ during setup/update", "met": true }
+  ],
+  "browser_test": false,
+  "tasks": [
+    {
+      "id": "add-hooks-to-package-files",
+      "title": "Add .claude/hooks/ to package.json files array",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["devon"],
+      "user_scenario": "When a consumer installs gru-ai via npm, the 5 validation hook scripts are included in the package and available on disk.",
+      "scope": "Add '.claude/hooks/' to the files array in package.json so that validate-cast.sh, validate-project-json.sh, validate-reviews.sh, validate-gate.sh, and detect-stale-docs.sh are published with the npm package. Verify with npm pack --dry-run that all 5 scripts appear in the tarball listing.",
+      "dod": [
+        { "criterion": "package.json files array includes '.claude/hooks/' entry", "met": true },
+        { "criterion": "Running 'npm pack --dry-run 2>&1' lists all 5 hook scripts (validate-cast.sh, validate-project-json.sh, validate-reviews.sh, validate-gate.sh, detect-stale-docs.sh)", "met": true },
+        { "criterion": "npm run type-check passes without errors", "met": true },
+        { "criterion": "No other entries in files array were removed or modified", "met": true }
+      ]
+    },
+    {
+      "id": "create-path-resolution-helper",
+      "title": "Create gruai package path resolution utility",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["devon"],
+      "user_scenario": "Skills and pipeline docs can resolve paths to package-bundled files (templates, hooks) regardless of whether gruai is running from source or as an installed npm package.",
+      "scope": "Create a shell-based resolution approach: a small helper script (e.g., cli/resolve-pkg-root.sh) that finds the gruai package root by walking up from its own location using dirname/realpath. Update SKILL.md files for gruai-agents and gruai-config to instruct agents to resolve cli/templates/ paths relative to the gruai package root rather than assuming CWD.",
+      "dod": [
+        { "criterion": "A documented resolution mechanism exists that reliably finds the gruai package root from a consumer project (works for both npm-installed and local development)", "met": true },
+        { "criterion": "gruai-agents SKILL.md instructions reference the resolution mechanism instead of bare 'cli/templates/' paths", "met": true },
+        { "criterion": "gruai-config SKILL.md instructions reference the resolution mechanism instead of bare 'cli/templates/' paths", "met": true },
+        { "criterion": "The resolution approach handles the case where gruai is linked locally (npm link) vs installed normally", "met": true }
+      ]
+    },
+    {
+      "id": "fix-hook-path-references-in-pipeline-docs",
+      "title": "Fix .claude/hooks/ path references in pipeline docs",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["devon"],
+      "user_scenario": "When the pipeline runs in a consumer project, hook invocations in pipeline docs resolve to the correct hook scripts from the gruai package rather than failing with 'file not found'.",
+      "scope": "Update the 3 pipeline docs (05-planning.md, 09-execute-projects.md, 10-wrapup.md) that invoke .claude/hooks/ scripts. Update the invocation instructions to use the package path resolution mechanism from the previous task.",
+      "dod": [
+        { "criterion": "All 5 hook invocations across 05-planning.md, 09-execute-projects.md, and 10-wrapup.md use the package-root resolution mechanism instead of bare '.claude/hooks/' paths", "met": true },
+        { "criterion": "The relative link in 05-planning.md pointing to validate-cast.sh is updated to use the resolved path", "met": true },
+        { "criterion": "Hook invocations still work in the development repo (agent-conductor itself) where hooks are at .claude/hooks/ relative to repo root", "met": true },
+        { "criterion": "No other content in the pipeline docs was modified beyond the path references", "met": true }
+      ]
+    },
+    {
+      "id": "copy-hooks-in-gruai-config-update",
+      "title": "Extend gruai-config skill to copy hooks to consumer .claude/hooks/",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "simple",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["devon"],
+      "user_scenario": "When a user runs /gruai-config to update their project, hooks are copied to .claude/hooks/ alongside skills, so the pipeline can invoke them directly without npm path resolution.",
+      "scope": "Update gruai-config SKILL.md Step 3 to also copy .claude/hooks/*.sh from the gruai package to the consumer's .claude/hooks/ directory. If this copy-to-consumer approach is adopted, simplify the pipeline doc references from task 3 to use .claude/hooks/ directly.",
+      "dod": [
+        { "criterion": "gruai-config SKILL.md Step 3 includes instructions to copy all .sh files from package .claude/hooks/ to consumer .claude/hooks/", "met": true },
+        { "criterion": "The 'What It Does NOT Overwrite' or a new 'What It DOES Overwrite' section explicitly lists hooks as framework files that get updated", "met": true },
+        { "criterion": "The backup step (Step 2) includes .claude/hooks/ in the backup alongside .claude/skills/", "met": true },
+        { "criterion": "If the copy-to-consumer approach makes task 3's resolution changes redundant, the pipeline docs are simplified back to .claude/hooks/ direct references", "met": true }
+      ]
+    }
+  ],
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T03:00:00Z",
+  "completed": "2026-03-08T03:00:00Z"
+}

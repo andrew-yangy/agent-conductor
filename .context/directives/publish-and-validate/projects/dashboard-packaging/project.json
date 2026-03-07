@@ -1,0 +1,97 @@
+{
+  "id": "dashboard-packaging",
+  "title": "Ship Dashboard and Game Server in npm Package",
+  "status": "completed",
+  "priority": "P1",
+  "agent": ["riley"],
+  "reviewers": ["sarah"],
+  "description": "Ensure dist/ (game dashboard) and dist-server/ (monitoring server) are correctly built, included in package.json, and functional when installed from npm. Dashboard is NOT optional. Server resolves paths relative to consumer project. 'gruai start' command launches server and serves dashboard.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["package.json dist/ inclusion", "server path resolution", "gruai start command", "game rendering with consumer registry"],
+    "out": ["game visual changes", "new dashboard features"]
+  },
+  "dod": [
+    { "criterion": "Server resolves .context/ from CWD and dist/ from package installation dir", "met": true },
+    { "criterion": "gruai start launches server and serves dashboard from npm-installed package", "met": true },
+    { "criterion": "Dashboard renders correctly with partial agent teams (4, 7, 12 agents)", "met": true },
+    { "criterion": "npm pack tarball installs and runs without devDependency errors", "met": true }
+  ],
+  "browser_test": true,
+  "tasks": [
+    {
+      "id": "fix-server-path-resolution",
+      "title": "Make server resolve paths relative to consumer CWD, not package dir",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["riley"],
+      "user_scenario": "When a consumer runs 'gruai start' from their project root, the server finds their .context/directives/, their agent-registry.json, and their .claude/ sessions.",
+      "scope": "Audit every use of process.cwd(), import.meta.dirname, and __dirname in server/. Refactor so .context/ resolves from CWD, agent-registry.json from consumer's .claude/, dist/ from package installation dir. Create a centralized path-resolution utility.",
+      "dod": [
+        { "criterion": "All server files use a centralized path helper for consumer-project vs package-root resolution", "met": true },
+        { "criterion": "directive-watcher resolves .context/ relative to process.cwd()", "met": true },
+        { "criterion": "session-scanner loads agent-registry.json from consumer .claude/ with fallback to bundled default", "met": true },
+        { "criterion": "Static asset serving (dist/) resolves relative to the installed package directory, not CWD", "met": true },
+        { "criterion": "npm run build:server succeeds with no type errors", "met": true }
+      ]
+    },
+    {
+      "id": "create-gruai-cli-entrypoint",
+      "title": "Create 'gruai start' CLI command that launches server and serves dashboard",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["riley"],
+      "user_scenario": "After 'npm install gru-ai', the user runs 'npx gruai start' from their project root, and the server boots up serving the pixel-art dashboard on localhost:4444.",
+      "scope": "Create a CLI entry point with a 'start' subcommand that spawns the server. Add bin field to package.json. Validate .context/ exists before launching.",
+      "dod": [
+        { "criterion": "package.json has a 'bin' field mapping 'gruai' to the CLI entry point", "met": true },
+        { "criterion": "CLI entry point is included in package.json 'files' array", "met": true },
+        { "criterion": "'gruai start' launches the server process and serves the dashboard", "met": true },
+        { "criterion": "'gruai start' from a directory without .context/ prints a clear error message", "met": true },
+        { "criterion": "CLI file has proper shebang line and is executable", "met": true }
+      ]
+    },
+    {
+      "id": "handle-partial-agent-registry",
+      "title": "Dashboard gracefully handles partial or missing agent-registry.json",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["riley"],
+      "user_scenario": "A Starter-tier user with only 4 agents sees those 4 characters in the pixel-art office; empty desks show as vacant.",
+      "scope": "Refactor dashboard to fetch agent-registry.json at runtime from server (new GET /api/agent-registry endpoint) instead of build-time import. Handle partial teams: fewer agents means fewer characters with empty desks.",
+      "dod": [
+        { "criterion": "Server exposes GET /api/agent-registry endpoint returning the consumer's registry or a bundled default", "met": true },
+        { "criterion": "Dashboard loads agent registry at runtime, not via build-time import", "met": true },
+        { "criterion": "Game renders correctly with 4 agents (Starter), 7 agents (Standard), and full 12 agents", "met": true },
+        { "criterion": "Unoccupied desk positions render as empty desks without characters", "met": true },
+        { "criterion": "npm run build:client succeeds — no broken imports to .claude/agent-registry.json", "met": true }
+      ]
+    },
+    {
+      "id": "verify-npm-pack-and-install",
+      "title": "Verify full build, npm pack, and install-from-tarball works end-to-end",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["riley"],
+      "user_scenario": "A developer runs 'npm install gru-ai' and 'npx gruai start' in a fresh project and sees the pixel-art dashboard with their agents.",
+      "scope": "Run npm run build && npm pack. Install tarball in temp directory. Run gruai start and verify server boots, dashboard loads, game renders. Fix any missing files or path issues.",
+      "dod": [
+        { "criterion": "npm pack produces a tarball containing dist/, dist-server/, cli bin, and templates", "met": true },
+        { "criterion": "Installing from tarball and running 'npx gruai start' boots the server without errors", "met": true },
+        { "criterion": "Dashboard loads in browser and game canvas renders", "met": true },
+        { "criterion": "No runtime dependency on devDependencies (tsx, vite, tailwindcss, etc.)", "met": true },
+        { "criterion": "Server correctly reads .context/ and .claude/agent-registry.json from the consumer project directory", "met": true }
+      ]
+    }
+  ],
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T03:00:00Z"
+}

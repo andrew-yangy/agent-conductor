@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { watch, type FSWatcher } from 'chokidar';
 import type { Aggregator } from '../state/aggregator.js';
 import type { DirectiveState, DirectiveProject, PipelineStep } from '../types.js';
+import { directivesDir as resolveDirectivesDir } from '../paths.js';
 
 // Pipeline steps by weight class. Steps not in a weight's list are skipped.
 const FULL_PIPELINE_STEPS: Array<{ id: string; label: string }> = [
@@ -148,7 +149,7 @@ export class DirectiveWatcher {
 
   constructor(aggregator: Aggregator, _claudeHome: string) {
     this.aggregator = aggregator;
-    this.directivesDir = path.join(process.cwd(), '.context', 'directives');
+    this.directivesDir = resolveDirectivesDir();
   }
 
   start(): void {

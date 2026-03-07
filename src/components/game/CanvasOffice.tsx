@@ -3,9 +3,9 @@
 // Fit-width layout: canvas sized to full map, native browser scrolling
 // ---------------------------------------------------------------------------
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OFFICE_LAYOUT } from './office-layout'
-import { OFFICE_AGENTS, type InteractionType } from './types'
+import type { AgentDesk, InteractionType } from './types'
 import type { AgentStatus, SessionInfo } from './pixel-types'
 import { OfficeState } from './engine/officeState'
 import { renderFrame, type SelectionRenderState, type IdentityOverlay } from './engine/renderer'
@@ -15,22 +15,20 @@ import { loadAllAssets, onTilesetReady } from './asset-loader'
 import { CharacterState, Direction } from './pixel-types'
 import { ROOM_ZONES, getZoneAt } from './engine/roomZones'
 
-// Build id -> agentName lookup (CEO shows as "You")
-const AGENT_ID_TO_NAME = new Map(
-  OFFICE_AGENTS.map((a) => [a.id, a.isPlayer ? 'You' : a.agentName])
-)
-// Build agentName -> id reverse lookup
-const AGENT_NAME_TO_ID = new Map(OFFICE_AGENTS.map((a) => [a.agentName, a.id]))
-// Build id -> real agentName (not "You") for item click resolution
-const AGENT_ID_TO_REAL_NAME = new Map(OFFICE_AGENTS.map((a) => [a.id, a.agentName]))
-
-// Build id -> hex color lookup
-const AGENT_ID_TO_COLOR = new Map(
-  OFFICE_AGENTS.map((a) => [a.id, COLOR_NAME_TO_HEX[a.color] ?? '#9ca3af'])
-)
-// Find the player-controlled CEO agent
-const CEO_AGENT = OFFICE_AGENTS.find((a) => a.isPlayer) ?? null
-const CEO_ID = CEO_AGENT?.id ?? null
+/** Build all agent lookup maps from an AgentDesk array */
+function buildAgentMaps(agents: AgentDesk[]) {
+  const AGENT_ID_TO_NAME = new Map(
+    agents.map((a) => [a.id, a.isPlayer ? 'You' : a.agentName])
+  )
+  const AGENT_NAME_TO_ID = new Map(agents.map((a) => [a.agentName, a.id]))
+  const AGENT_ID_TO_REAL_NAME = new Map(agents.map((a) => [a.id, a.agentName]))
+  const AGENT_ID_TO_COLOR = new Map(
+    agents.map((a) => [a.id, COLOR_NAME_TO_HEX[a.color] ?? '#9ca3af'])
+  )
+  const CEO_AGENT = agents.find((a) => a.isPlayer) ?? null
+  const CEO_ID = CEO_AGENT?.id ?? null
+  return { AGENT_ID_TO_NAME, AGENT_NAME_TO_ID, AGENT_ID_TO_REAL_NAME, AGENT_ID_TO_COLOR, CEO_ID }
+}
 
 // Zoom bounds
 const MIN_ZOOM_ABSOLUTE = 1
@@ -70,6 +68,8 @@ export interface ClickedItem {
 }
 
 interface CanvasOfficeProps {
+  /** Agent definitions from the runtime registry (may be partial) */
+  agents: AgentDesk[]
   onAgentClick?: (agentName: string) => void
   onItemClick?: (item: ClickedItem | null) => void
   agentStatuses: Record<string, AgentStatus>
@@ -87,6 +87,7 @@ interface CanvasOfficeProps {
 }
 
 export default function CanvasOffice({
+  agents,
   onAgentClick,
   onItemClick,
   agentStatuses,
@@ -97,13 +98,18 @@ export default function CanvasOffice({
   reviewInteractions,
   selectedAgentName,
 }: CanvasOfficeProps) {
+  // Agent lookup maps — recomputed when agents list changes (typically only once)
+  const maps = useMemo(() => buildAgentMaps(agents), [agents])
+  const mapsRef = useRef(maps)
+  mapsRef.current = maps
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef<OfficeState | null>(null)
   const rafRef = useRef(0)
   const lastTimeRef = useRef(0)
-  const propsRef = useRef({ onAgentClick, onItemClick, agentStatuses, agentSessionInfos, agentBusyMap, agentInteractions, subagentsByParent, reviewInteractions, selectedAgentName })
-  propsRef.current = { onAgentClick, onItemClick, agentStatuses, agentSessionInfos, agentBusyMap, agentInteractions, subagentsByParent, reviewInteractions, selectedAgentName }
+  const propsRef = useRef({ agents, onAgentClick, onItemClick, agentStatuses, agentSessionInfos, agentBusyMap, agentInteractions, subagentsByParent, reviewInteractions, selectedAgentName })
+  propsRef.current = { agents, onAgentClick, onItemClick, agentStatuses, agentSessionInfos, agentBusyMap, agentInteractions, subagentsByParent, reviewInteractions, selectedAgentName }
 
   // Zoom state: fitZoom is the baseline (fit map width to container), zoom is current
   const [fitZoom, setFitZoom] = useState(3)
@@ -122,14 +128,18 @@ export default function CanvasOffice({
   }, [])
 
   // Initialize office state + add agents + load assets
+  // Depends on agents prop so the office re-initializes if the registry loads
   useEffect(() => {
+    if (agents.length === 0) return // Don't init until we have agents
+
     const state = new OfficeState(OFFICE_LAYOUT)
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of agents) {
       state.addAgent(agent.id, agent.palette, agent.hueShift, agent.seatId, true)
     }
     // Mark CEO as player-controlled and start idle (not typing at desk)
-    if (CEO_ID !== null) {
-      const ceoCh = state.characters.get(CEO_ID)
+    const ceoId = maps.CEO_ID
+    if (ceoId !== null) {
+      const ceoCh = state.characters.get(ceoId)
       if (ceoCh) {
         ceoCh.isPlayerControlled = true
         ceoCh.state = CharacterState.IDLE
@@ -137,8 +147,8 @@ export default function CanvasOffice({
         ceoCh.agentStatus = 'working'
       }
     }
-    if (CEO_ID !== null) {
-      state.cameraFollowId = CEO_ID
+    if (ceoId !== null) {
+      state.cameraFollowId = ceoId
     }
     stateRef.current = state
     // DEV: expose for debugging (remove before shipping)
@@ -147,14 +157,14 @@ export default function CanvasOffice({
     onTilesetReady(() => {
       state.rebuildFurnitureInstances()
     })
-  }, [])
+  }, [agents, maps])
 
   // Sync agent statuses from props (debounced inside OfficeState)
   // Skip player-controlled CEO
   useEffect(() => {
     const state = stateRef.current
     if (!state) return
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of propsRef.current.agents) {
       if (agent.isPlayer) continue
       const status = agentStatuses[agent.agentName] ?? 'offline'
       state.setAgentStatus(agent.id, status)
@@ -165,7 +175,7 @@ export default function CanvasOffice({
   useEffect(() => {
     const state = stateRef.current
     if (!state || !agentSessionInfos) return
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of propsRef.current.agents) {
       const info = agentSessionInfos[agent.agentName]
       if (info) {
         state.setAgentSessionInfo(agent.id, info)
@@ -177,7 +187,7 @@ export default function CanvasOffice({
   useEffect(() => {
     const state = stateRef.current
     if (!state || !agentBusyMap) return
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of propsRef.current.agents) {
       state.setAgentBusy(agent.id, agentBusyMap[agent.agentName] ?? false)
     }
   }, [agentBusyMap])
@@ -189,11 +199,11 @@ export default function CanvasOffice({
     const idMap = new Map<number, number[]>()
     if (subagentsByParent) {
       for (const [parentName, childNames] of subagentsByParent) {
-        const parentId = AGENT_NAME_TO_ID.get(parentName)
+        const parentId = mapsRef.current.AGENT_NAME_TO_ID.get(parentName)
         if (parentId === undefined) continue
         const childIds: number[] = []
         for (const childName of childNames) {
-          const childId = AGENT_NAME_TO_ID.get(childName)
+          const childId = mapsRef.current.AGENT_NAME_TO_ID.get(childName)
           if (childId !== undefined) childIds.push(childId)
         }
         if (childIds.length > 0) idMap.set(parentId, childIds)
@@ -212,8 +222,8 @@ export default function CanvasOffice({
     const idPairs = new Map<number, number>()
     if (reviewInteractions) {
       for (const [reviewerName, builderName] of reviewInteractions) {
-        const reviewerId = AGENT_NAME_TO_ID.get(reviewerName)
-        const builderId = AGENT_NAME_TO_ID.get(builderName)
+        const reviewerId = mapsRef.current.AGENT_NAME_TO_ID.get(reviewerName)
+        const builderId = mapsRef.current.AGENT_NAME_TO_ID.get(builderName)
         if (reviewerId !== undefined && builderId !== undefined) {
           idPairs.set(reviewerId, builderId)
         }
@@ -229,7 +239,7 @@ export default function CanvasOffice({
     const state = stateRef.current
     if (!state) return
     if (selectedAgentName) {
-      const agent = OFFICE_AGENTS.find((a) => a.agentName === selectedAgentName)
+      const agent = propsRef.current.agents.find((a) => a.agentName === selectedAgentName)
       state.selectedAgentId = agent ? agent.id : null
     } else {
       state.selectedAgentId = null
@@ -238,7 +248,7 @@ export default function CanvasOffice({
 
   // WASD/Arrow keyboard input on window — held-key tracking for continuous movement
   useEffect(() => {
-    if (CEO_ID === null) return
+    if (mapsRef.current.CEO_ID === null) return
 
     const MOVE_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'])
 
@@ -258,7 +268,7 @@ export default function CanvasOffice({
       if (!state) return
       state.heldKeys.add(key)
       // If CEO is idle with no path, immediately start moving in the pressed direction
-      const ceo = state.characters.get(CEO_ID!)
+      const ceo = state.characters.get(mapsRef.current.CEO_ID!)
       if (ceo && ceo.isPlayerControlled && ceo.state === CharacterState.IDLE && ceo.path.length === 0) {
         let dc = 0
         let dr = 0
@@ -270,12 +280,12 @@ export default function CanvasOffice({
         }
         const targetCol = ceo.tileCol + dc
         const targetRow = ceo.tileRow + dr
-        let moved = state.walkToTile(CEO_ID!, targetCol, targetRow)
+        let moved = state.walkToTile(mapsRef.current.CEO_ID!, targetCol, targetRow)
         // If blocked (e.g. surrounded by desk furniture), stand up then retry
-        if (!moved && state.standUpFromSeat(CEO_ID!)) {
+        if (!moved && state.standUpFromSeat(mapsRef.current.CEO_ID!)) {
           // After teleport, try walking in the pressed direction from the new position
           const newTarget = { col: ceo.tileCol + dc, row: ceo.tileRow + dr }
-          state.walkToTile(CEO_ID!, newTarget.col, newTarget.row)
+          state.walkToTile(mapsRef.current.CEO_ID!, newTarget.col, newTarget.row)
         }
       }
     }
@@ -478,10 +488,10 @@ export default function CanvasOffice({
       const statuses = propsRef.current.agentStatuses
       const statusMap = new Map<number, import('./types').AgentStatus>()
       for (const [name, status] of Object.entries(statuses)) {
-        const id = AGENT_NAME_TO_ID.get(name)
+        const id = mapsRef.current.AGENT_NAME_TO_ID.get(name)
         if (id !== undefined) statusMap.set(id, status)
       }
-      if (CEO_ID !== null) statusMap.set(CEO_ID, 'working')
+      if (mapsRef.current.CEO_ID !== null) statusMap.set(mapsRef.current.CEO_ID, 'working')
 
       // Build task text map from character session info
       const taskTextMap = new Map<number, string>()
@@ -490,7 +500,7 @@ export default function CanvasOffice({
         for (const [name, info] of Object.entries(sessionInfos)) {
           const text = info.taskName ?? formatActivity(info.toolName, info.detail)
           if (text) {
-            const id = AGENT_NAME_TO_ID.get(name)
+            const id = mapsRef.current.AGENT_NAME_TO_ID.get(name)
             if (id !== undefined) taskTextMap.set(id, text)
           }
         }
@@ -501,8 +511,8 @@ export default function CanvasOffice({
       const interactions = propsRef.current.agentInteractions
       if (interactions) {
         for (const [a, b, type] of interactions) {
-          const idA = AGENT_NAME_TO_ID.get(a)
-          const idB = AGENT_NAME_TO_ID.get(b)
+          const idA = mapsRef.current.AGENT_NAME_TO_ID.get(a)
+          const idB = mapsRef.current.AGENT_NAME_TO_ID.get(b)
           if (idA !== undefined && idB !== undefined) {
             interactionMap.set(idA, {partnerId: idB, type})
             interactionMap.set(idB, {partnerId: idA, type})
@@ -511,9 +521,9 @@ export default function CanvasOffice({
       }
 
       const identity: IdentityOverlay = {
-        nameMap: AGENT_ID_TO_NAME,
+        nameMap: mapsRef.current.AGENT_ID_TO_NAME,
         statusMap,
-        colorMap: AGENT_ID_TO_COLOR,
+        colorMap: mapsRef.current.AGENT_ID_TO_COLOR,
         taskTextMap,
         interactionMap,
         time: time / 1000,
@@ -589,13 +599,13 @@ export default function CanvasOffice({
 
   // Initial scroll-to-CEO on mount so the player character is visible
   useEffect(() => {
-    if (CEO_ID === null) return
+    if (mapsRef.current.CEO_ID === null) return
     // Delay slightly to allow canvas dimensions to settle
     const timer = requestAnimationFrame(() => {
       const state = stateRef.current
       const scrollParent = wrapperRef.current?.parentElement
       if (!state || !scrollParent) return
-      const ceo = state.characters.get(CEO_ID!)
+      const ceo = state.characters.get(mapsRef.current.CEO_ID!)
       if (!ceo) return
       const currentZoom = zoomRef.current
       const ceoScreenX = ceo.x * currentZoom
@@ -618,12 +628,12 @@ export default function CanvasOffice({
 
   // Resolve character id -> display name ("You" for CEO)
   const resolveAgentName = useCallback((charId: number): string => {
-    return AGENT_ID_TO_NAME.get(charId) ?? ''
+    return mapsRef.current.AGENT_ID_TO_NAME.get(charId) ?? ''
   }, [])
 
   // Resolve character id -> real agent name (for data lookups, never "You")
   const resolveRealAgentName = useCallback((charId: number): string => {
-    return AGENT_ID_TO_REAL_NAME.get(charId) ?? ''
+    return mapsRef.current.AGENT_ID_TO_REAL_NAME.get(charId) ?? ''
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -667,14 +677,15 @@ export default function CanvasOffice({
       }
 
       // 3. Empty space -- click-to-move CEO (no deselection; use Escape to deselect)
-      if (CEO_ID !== null) {
+      if (mapsRef.current.CEO_ID !== null) {
+        const ceoId = mapsRef.current.CEO_ID
         const tileCol = Math.floor(worldX / TILE_SIZE)
         const tileRow = Math.floor(worldY / TILE_SIZE)
-        const moved = state.walkToTile(CEO_ID, tileCol, tileRow)
+        const moved = state.walkToTile(ceoId, tileCol, tileRow)
         // If blocked (surrounded by desk), stand up then retry
         if (!moved) {
-          if (state.standUpFromSeat(CEO_ID)) {
-            state.walkToTile(CEO_ID, tileCol, tileRow)
+          if (state.standUpFromSeat(ceoId)) {
+            state.walkToTile(ceoId, tileCol, tileRow)
           }
         }
       }
@@ -718,7 +729,7 @@ export default function CanvasOffice({
             zone.bounds.maxCol, zone.bounds.maxRow,
           )
           const agentNames = agentsInZone
-            .map((a) => AGENT_ID_TO_NAME.get(a.id) ?? '')
+            .map((a) => mapsRef.current.AGENT_ID_TO_NAME.get(a.id) ?? '')
             .filter((n) => n !== '')
           setTooltip({
             x: screenX + 12,
@@ -793,7 +804,7 @@ export default function CanvasOffice({
           const charId = state.getCharacterAt(worldX, worldY)
           if (charId !== null) {
             state.selectedAgentId = charId === state.selectedAgentId ? null : charId
-            const name = AGENT_ID_TO_NAME.get(charId) ?? ''
+            const name = mapsRef.current.AGENT_ID_TO_NAME.get(charId) ?? ''
             if (name && propsRef.current.onAgentClick) {
               propsRef.current.onAgentClick(name)
             }
@@ -803,7 +814,7 @@ export default function CanvasOffice({
               state.selectedAgentId = null
               let agentName: string | undefined
               if (tileInfo.type === 'desk' && tileInfo.agentId !== undefined) {
-                agentName = AGENT_ID_TO_REAL_NAME.get(tileInfo.agentId)
+                agentName = mapsRef.current.AGENT_ID_TO_REAL_NAME.get(tileInfo.agentId)
               }
               if (propsRef.current.onItemClick) {
                 propsRef.current.onItemClick({
@@ -815,13 +826,14 @@ export default function CanvasOffice({
               }
             } else {
               // Empty space -- click-to-move CEO (no deselection; use Escape to deselect)
-              if (CEO_ID !== null) {
+              if (mapsRef.current.CEO_ID !== null) {
+                const ceoId = mapsRef.current.CEO_ID
                 const tileCol = Math.floor(worldX / TILE_SIZE)
                 const tileRow = Math.floor(worldY / TILE_SIZE)
-                const moved = state.walkToTile(CEO_ID, tileCol, tileRow)
+                const moved = state.walkToTile(ceoId, tileCol, tileRow)
                 if (!moved) {
-                  if (state.standUpFromSeat(CEO_ID)) {
-                    state.walkToTile(CEO_ID, tileCol, tileRow)
+                  if (state.standUpFromSeat(ceoId)) {
+                    state.walkToTile(ceoId, tileCol, tileRow)
                   }
                 }
               }

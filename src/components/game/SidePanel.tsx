@@ -7,7 +7,7 @@ import { X, Users, Zap, Activity, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { OFFICE_AGENTS, type AgentStatus, type SelectedItem } from './types';
+import { type AgentStatus, type SelectedItem } from './types';
 import { useBadgeCounts, type BadgeCounts } from './hooks/useBadgeCounts';
 import {
   TeamPanel,

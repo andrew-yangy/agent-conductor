@@ -2,7 +2,7 @@
 // Game Types -- Office Simulation
 // ---------------------------------------------------------------------------
 
-import registry from '../../../.claude/agent-registry.json';
+import type { AgentRegistry } from '@/stores/agent-registry-store';
 
 /** Agent status derived from session data */
 export type AgentStatus = 'working' | 'idle';
@@ -51,29 +51,41 @@ export interface AgentDesk {
   isPlayer: boolean;
 }
 
-/** Agents with game presence, derived from the canonical agent-registry.json */
-export const OFFICE_AGENTS: AgentDesk[] = registry.agents
-  .filter((a) => a.game !== null)
-  .map((a, idx) => ({
-    id: idx + 1,
-    agentName: a.name.split(' ')[0],
-    agentRole: a.title,
-    palette: a.game!.palette,
-    hueShift: (a.game as Record<string, unknown>).hueShift as number ?? 0,
-    seatId: a.game!.seatId,
-    position: { row: a.game!.position.row, col: a.game!.position.col },
-    color: a.game!.color,
-    isPlayer: !!(a.game as Record<string, unknown>).isPlayer,
-  }));
+/**
+ * Build OFFICE_AGENTS from a runtime-loaded agent registry.
+ * Returns only agents that have a `game` config (non-null).
+ * Gracefully handles partial registries (4, 7, 12 agents).
+ */
+export function buildOfficeAgents(registry: AgentRegistry | null): AgentDesk[] {
+  if (!registry || !Array.isArray(registry.agents)) return [];
+  return registry.agents
+    .filter((a) => a.game != null)
+    .map((a, idx) => ({
+      id: idx + 1,
+      agentName: a.name.split(' ')[0],
+      agentRole: a.title,
+      palette: a.game!.palette,
+      hueShift: a.game!.hueShift ?? 0,
+      seatId: a.game!.seatId,
+      position: { row: a.game!.position.row, col: a.game!.position.col },
+      color: a.game!.color,
+      isPlayer: !!a.game!.isPlayer,
+    }));
+}
 
-/** Map from grid character code to agent name (kept for compat) */
-export const AGENT_CHAR_MAP: Record<string, string> = Object.fromEntries(
-  OFFICE_AGENTS.map((a) => {
-    // Use first letter, except Marcus -> 'X' to avoid collision with Morgan's 'M'
-    const char = a.agentName === 'Marcus' ? 'X' : a.agentName[0];
-    return [char, a.agentName];
-  })
-);
+/**
+ * Build the agent char map from office agents.
+ * Maps grid character code to agent name (kept for compat).
+ */
+export function buildAgentCharMap(agents: AgentDesk[]): Record<string, string> {
+  return Object.fromEntries(
+    agents.map((a) => {
+      // Use first letter, except Marcus -> 'X' to avoid collision with Morgan's 'M'
+      const char = a.agentName === 'Marcus' ? 'X' : a.agentName[0];
+      return [char, a.agentName];
+    })
+  );
+}
 
 /** Interactive tile types the user can click (kept for compat) */
 export const INTERACTIVE_TILES: Set<TileType> = new Set([

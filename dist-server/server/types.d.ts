@@ -1,24 +1,3 @@
-export interface Team {
-    name: string;
-    description: string;
-    members: TeamMember[];
-    createdAt: string;
-    leadAgentId: string;
-    leadSessionId: string;
-    stale: boolean;
-}
-export interface TeamMember {
-    name: string;
-    agentId: string;
-    agentType: string;
-    model: string;
-    tmuxPaneId: string;
-    cwd: string;
-    color: string;
-    isActive: boolean;
-    backendType: string;
-    joinedAt: string;
-}
 export interface TeamTask {
     id: string;
     subject: string;
@@ -88,6 +67,8 @@ export interface DirectiveProject {
     phase: 'audit' | 'design' | 'build' | 'review' | null;
     totalTasks?: number;
     completedTasks?: number;
+    agent?: string[];
+    reviewers?: string[];
     tasks?: DirectiveProjectTask[];
 }
 export type PipelineStepStatus = 'pending' | 'active' | 'completed' | 'skipped' | 'failed';
@@ -116,8 +97,6 @@ export interface DirectiveState {
     currentStepId?: string;
     /** Directive weight class */
     weight?: string;
-    /** Directive category (e.g. game, ui, framework) */
-    category?: string;
     /** Triage rationale — why this weight was assigned */
     triageRationale?: string;
     /** CEO approval status */
@@ -132,10 +111,8 @@ export interface DirectiveState {
     directiveBrief?: string;
 }
 export interface DashboardState {
-    teams: Team[];
     sessions: Session[];
     projects: ProjectGroup[];
-    tasksByTeam: Record<string, TeamTask[]>;
     tasksBySession: Record<string, TeamTask[]>;
     events: HookEvent[];
     sessionActivities: Record<string, SessionActivity>;
@@ -176,62 +153,9 @@ export interface SessionActivity {
     lastSeen: string;
     active: boolean;
 }
-export type WsMessageType = 'full_state' | 'sessions_updated' | 'projects_updated' | 'teams_updated' | 'tasks_updated' | 'event_added' | 'events_updated' | 'session_activities_updated' | 'notification_fired' | 'directive_updated' | 'state_updated';
+export type WsMessageType = 'full_state' | 'sessions_updated' | 'projects_updated' | 'event_added' | 'events_updated' | 'session_activities_updated' | 'notification_fired' | 'directive_updated' | 'state_updated';
 export interface WsMessage {
     version: 1;
     type: WsMessageType;
     payload: unknown;
-}
-export interface IntelligenceAgentStats {
-    agent: string;
-    domain: string;
-    totalFindings: number;
-    findingsByUrgency: Record<string, number>;
-    findingsByType: Record<string, number>;
-    proposalsSubmitted: number;
-    proposalsAccepted: number;
-    acceptanceRate: number;
-    topProducts: string[];
-}
-export interface IntelligenceTopicCluster {
-    topic: string;
-    keywords: string[];
-    mentionCount: number;
-    agents: string[];
-    urgencyMax: string;
-    items: Array<{
-        id: string;
-        title: string;
-        agent: string;
-        urgency: string;
-    }>;
-}
-export interface IntelligenceCrossScoutSignal {
-    topic: string;
-    agentCount: number;
-    agents: string[];
-    totalMentions: number;
-    highestUrgency: string;
-    items: Array<{
-        id: string;
-        title: string;
-        agent: string;
-        urgency: string;
-    }>;
-    strength: 'strong' | 'moderate' | 'weak';
-    shouldPromote: boolean;
-}
-export interface IntelligenceTrendsResult {
-    generated: string;
-    scoutDate: string | null;
-    totalFindings: number;
-    totalProposals: number;
-    totalAccepted: number;
-    overallAcceptanceRate: number;
-    agentStats: IntelligenceAgentStats[];
-    topTopics: IntelligenceTopicCluster[];
-    crossScoutSignals: IntelligenceCrossScoutSignal[];
-    urgencyBreakdown: Record<string, number>;
-    typeBreakdown: Record<string, number>;
-    productHeatmap: Record<string, number>;
 }

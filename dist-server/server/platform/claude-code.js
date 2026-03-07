@@ -8,7 +8,6 @@
 import { initializeAllFileStates, discoverSessionFiles, getAllFileStates as getAllFileStatesRaw, getOrBootstrap as getOrBootstrapRaw, removeFileState as removeFileStateRaw, processFileUpdate as processFileUpdateRaw, toSessionActivity as toSessionActivityRaw, machineStateToLastEntryType, } from '../parsers/session-state.js';
 import { discoverProjects, loadConfig } from '../config.js';
 import { SessionWatcher } from '../watchers/session-watcher.js';
-import { ClaudeWatcher } from '../watchers/claude-watcher.js';
 export class ClaudeCodeAdapter {
     /** Instance-level session file state map (replaces module-level singleton). */
     fileStates = new Map();
@@ -66,8 +65,8 @@ export class ClaudeCodeAdapter {
     createSessionWatcher(aggregator, projectFilter) {
         return new SessionWatcher(aggregator, this.claudeHome, projectFilter, this);
     }
-    createMetadataWatcher(aggregator) {
-        return new ClaudeWatcher(aggregator, this.claudeHome);
+    createMetadataWatcher(_aggregator) {
+        return null;
     }
     // -------------------------------------------------------------------------
     // Config methods

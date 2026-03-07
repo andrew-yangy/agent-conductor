@@ -61,4 +61,4 @@ If validation fails (`valid: false`), log the violations and either:
 - **Auto-fix** if the violation is clear (e.g., swap a conflicting reviewer for the next-best match per casting rules)
 - **Block** and re-prompt the COO with the violations if auto-fix isn't possible
 
-> See [.claude/hooks/validate-cast.sh](../../../../.claude/hooks/validate-cast.sh) for the validation script.
+> See `.claude/hooks/validate-cast.sh` for the validation script (copied to consumer project by `/gruai-config`).

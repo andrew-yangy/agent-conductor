@@ -6,30 +6,33 @@ import { useMemo } from 'react';
 import { Swords, Fish } from 'lucide-react';
 import { cn, timeAgo } from '@/lib/utils';
 import { useDashboardStore } from '@/stores/dashboard-store';
+import { useAgentRegistryStore } from '@/stores/agent-registry-store';
 import QuickActions from '@/components/shared/QuickActions';
-import { OFFICE_AGENTS, type AgentStatus } from '../types';
-import registry from '../../../../.claude/agent-registry.json';
+import { type AgentStatus } from '../types';
+import { useOfficeAgents } from '../useOfficeAgents';
 import {
   SectionHeader, StatusChip, PIXEL_CARD, PIXEL_CARD_RAISED,
   ParchmentDivider, PARCHMENT,
 } from './panelUtils';
 
-// ---------------------------------------------------------------------------
-// Org hierarchy maps from registry
-// ---------------------------------------------------------------------------
+/** Build org hierarchy lookup maps from agent registry data */
+function buildOrgMaps(agents: Array<{ id: string; name: string; role: string; isCsuite: boolean; reportsTo: string | null }>) {
+  const AGENT_IS_CSUITE: Record<string, boolean> = {};
+  const AGENT_REPORTS_TO: Record<string, string> = {};
+  const AGENT_FULL_ROLE: Record<string, string> = {};
+  const KNOWN_AGENT_IDS = new Set(agents.map((a) => a.id));
 
-const AGENT_IS_CSUITE: Record<string, boolean> = {};
-const AGENT_REPORTS_TO: Record<string, string> = {};
-const AGENT_FULL_ROLE: Record<string, string> = {};
-
-for (const agent of registry.agents) {
-  const firstName = agent.name.split(' ')[0];
-  AGENT_IS_CSUITE[firstName] = agent.isCsuite;
-  if (agent.reportsTo) {
-    const manager = registry.agents.find((a) => a.id === agent.reportsTo);
-    if (manager) AGENT_REPORTS_TO[firstName] = manager.name.split(' ')[0];
+  for (const agent of agents) {
+    const firstName = agent.name.split(' ')[0];
+    AGENT_IS_CSUITE[firstName] = agent.isCsuite;
+    if (agent.reportsTo) {
+      const manager = agents.find((a) => a.id === agent.reportsTo);
+      if (manager) AGENT_REPORTS_TO[firstName] = manager.name.split(' ')[0];
+    }
+    AGENT_FULL_ROLE[firstName] = agent.role;
   }
-  AGENT_FULL_ROLE[firstName] = agent.role;
+
+  return { AGENT_IS_CSUITE, AGENT_REPORTS_TO, AGENT_FULL_ROLE, KNOWN_AGENT_IDS };
 }
 
 const TEAM_COLORS: Record<string, string> = {
@@ -53,7 +56,7 @@ interface TeamPanelProps {
 // ---------------------------------------------------------------------------
 
 interface AgentInfo {
-  agent: (typeof OFFICE_AGENTS)[0];
+  agent: { agentName: string; agentRole: string; color: string; isPlayer: boolean };
   status: AgentStatus;
   taskName: string | undefined;
   toolName: string | undefined;
@@ -67,7 +70,7 @@ interface AgentInfo {
 }
 
 interface InactiveAgent {
-  agent: (typeof OFFICE_AGENTS)[0];
+  agent: { agentName: string; agentRole: string; color: string; isPlayer: boolean };
   status: AgentStatus;
   lastFeature?: string;
   lastActivity?: string;
@@ -256,6 +259,13 @@ function IdleEmptyState() {
 export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelProps) {
   const sessions = useDashboardStore((s) => s.sessions);
   const sessionActivities = useDashboardStore((s) => s.sessionActivities);
+  const registry = useAgentRegistryStore((s) => s.registry);
+  const OFFICE_AGENTS = useOfficeAgents();
+
+  const orgMaps = useMemo(
+    () => buildOrgMaps(registry?.agents ?? []),
+    [registry],
+  );
 
   const agentData = useMemo(() => {
     const active: AgentInfo[] = [];
@@ -342,27 +352,38 @@ export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelPro
           status: st,
           lastFeature: lastSession?.feature ?? undefined,
           lastActivity: lastSession?.lastActivity ?? undefined,
-          fullRole: AGENT_FULL_ROLE[a.agentName],
+          fullRole: orgMaps.AGENT_FULL_ROLE[a.agentName],
           sessionCount: allAgentSessions.length,
-          isCsuite: AGENT_IS_CSUITE[a.agentName] ?? false,
+          isCsuite: orgMaps.AGENT_IS_CSUITE[a.agentName] ?? false,
         });
       }
     }
     return { active, inactive };
-  }, [agentStatuses, sessions, sessionActivities]);
+  }, [agentStatuses, sessions, sessionActivities, OFFICE_AGENTS, orgMaps]);
 
   // Build team groups for loafing section
   const teamGroups = useMemo(() => {
     const groups: TeamGroup[] = [];
     const teamOrder = ['Engineering', 'Product', 'Growth', 'Operations'];
 
-    for (const team of registry.teams) {
-      const leader = registry.agents.find((a) => a.id === team.leadAgentId);
+    // Gracefully handle registries with no teams array
+    const regData = registry as { agents: Array<{ id: string; name: string }>; teams?: Array<{ name: string; leadAgentId: string; memberAgentIds: string[] }> } | null;
+    const teams = regData?.teams ?? [];
+
+    for (const team of teams) {
+      // Filter memberAgentIds to only include agents that actually exist in the registry
+      const validMembers = (team.memberAgentIds ?? []).filter((id) => orgMaps.KNOWN_AGENT_IDS.has(id));
+      // Skip teams with zero valid members
+      if (validMembers.length === 0) continue;
+
+      // Resolve lead: use designated lead if present, otherwise first valid member
+      const leadId = orgMaps.KNOWN_AGENT_IDS.has(team.leadAgentId) ? team.leadAgentId : validMembers[0];
+      const leader = regData?.agents.find((a) => a.id === leadId);
       const leaderName = leader?.name.split(' ')[0];
 
       const leaderInfo = agentData.inactive.find((i) => i.agent.agentName === leaderName) ?? null;
       const reports = agentData.inactive.filter((i) => {
-        const reportsTo = AGENT_REPORTS_TO[i.agent.agentName];
+        const reportsTo = orgMaps.AGENT_REPORTS_TO[i.agent.agentName];
         return reportsTo === leaderName && i.agent.agentName !== leaderName;
       });
 
@@ -385,7 +406,7 @@ export default function TeamPanel({ agentStatuses, onSelectAgent }: TeamPanelPro
     });
 
     return groups;
-  }, [agentData.inactive]);
+  }, [agentData.inactive, registry, orgMaps]);
 
   const workingCount = agentData.active.length;
   const idleCount = agentData.inactive.length;

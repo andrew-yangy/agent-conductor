@@ -1,0 +1,135 @@
+{
+  "id": "end-to-end-validation",
+  "title": "Zero-Trust E2E Validation of Full Pipeline",
+  "status": "completed",
+  "priority": "P0",
+  "agent": ["sam"],
+  "reviewers": ["sarah", "marcus"],
+  "description": "Verify the full pipeline works end-to-end from scratch, trusting NOTHING from prior work. Verify adapters, parsers, hooks, init scaffolding, directive lifecycle, and integration. Fix any breakage discovered.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["PlatformAdapter verification", "ClaudeCodeAdapter verification", "JSONL parsing", "hook scripts", "init scaffolding", "directive lifecycle", "integration smoke test"],
+    "out": ["new adapter implementations", "dashboard E2E"]
+  },
+  "dod": [
+    { "criterion": "PlatformAdapter and SpawnAdapter compile, instantiate, and pass method-level verification", "met": true },
+    { "criterion": "JSONL session parsing correctly extracts session metadata from real session files", "met": true },
+    { "criterion": "All 4 hook scripts produce correct output for valid and invalid inputs", "met": true },
+    { "criterion": "Init scaffolding produces valid project structures for multiple team configs", "met": true },
+    { "criterion": "Full integration smoke test passes: synthetic directive through all validation gates", "met": true }
+  ],
+  "browser_test": false,
+  "tasks": [
+    {
+      "id": "adapter-unit-validation",
+      "title": "Verify PlatformAdapter and SpawnAdapter Compile and Function",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When a developer runs the server, PlatformAdapter and SpawnAdapter implementations load without import errors and pass type-checking.",
+      "scope": "Zero-trust verification of ClaudeCodeAdapter and ClaudeCodeSpawnAdapter. Verify imports, instantiation, method calls. Write scripts/validate-adapters.ts. Fix any breakage.",
+      "dod": [
+        { "criterion": "npm run type-check passes with zero errors touching server/platform/*.ts files", "met": true },
+        { "criterion": "scripts/validate-adapters.ts instantiates ClaudeCodeAdapter and calls discoverSessionFiles() + getPlatformCapabilities() without throwing", "met": true },
+        { "criterion": "scripts/validate-adapters.ts verifies ClaudeCodeSpawnAdapter buildArgs output includes -p flag, --agent flag when agentId set, --dangerously-skip-permissions when skipPermissions true", "met": true },
+        { "criterion": "Any import resolution failures or type mismatches are fixed in-place", "met": true }
+      ]
+    },
+    {
+      "id": "session-parsing-validation",
+      "title": "Verify JSONL Session Parsing End-to-End",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When the server processes a real JSONL session file, it correctly extracts session ID, model, agent state, tool counts, and prompt text.",
+      "scope": "Zero-trust verification of JSONL parsing pipeline: session-state.ts and session-scanner.ts. Write scripts/validate-session-parsing.ts using a real session file. Fix parsing bugs.",
+      "dod": [
+        { "criterion": "scripts/validate-session-parsing.ts runs against a real JSONL file and reports sessionId, model, machineState, toolUseCount as non-null/non-zero", "met": true },
+        { "criterion": "toSessionActivity returns a SessionActivity with session_id and project fields populated", "met": true },
+        { "criterion": "getAgentState correctly maps all four MachineState->AgentState transitions", "met": true },
+        { "criterion": "Any parsing failures or field-mapping bugs are fixed with before/after documentation", "met": true }
+      ]
+    },
+    {
+      "id": "hook-scripts-validation",
+      "title": "Verify All Hook Scripts Execute Correctly",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When the pipeline runs validation hooks, each produces correct JSON output for both valid and invalid inputs.",
+      "scope": "Zero-trust verification of all 4 hook scripts. Test each with valid and invalid input. Run existing gate tests. Fix any broken scripts.",
+      "bugs_fixed": [
+        "run-tests.sh used 'review' as step name but validate-gate.sh case statement uses 'review-gate'. Fixed test to use 'review-gate'."
+      ],
+      "dod": [
+        { "criterion": "validate-cast.sh returns {valid:true} for a well-formed plan.json and catches builder-as-reviewer violation", "met": true },
+        { "criterion": "validate-project-json.sh returns {valid:true} for a complete project.json and catches missing-agent violation", "met": true },
+        { "criterion": "validate-gate.sh returns valid JSON for at least 2 step targets against a real or fixture directive", "met": true },
+        { "criterion": "All existing tests in .claude/hooks/tests/gate/run-tests.sh pass", "met": true },
+        { "criterion": "Any script bugs (exit codes, jq errors, path resolution) are fixed in-place", "met": true }
+      ]
+    },
+    {
+      "id": "init-scaffolding-validation",
+      "title": "Verify gruai init Scaffolds Correctly for Multiple Team Configs",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When a new user runs npx gru-ai init, they get a complete scaffolded project with agents, registry, skills, context tree, and CLAUDE.md that all reference each other correctly.",
+      "scope": "Zero-trust verification of init scaffolding. Create temp directories and run scaffolding. Verify all files exist and are valid. Test idempotency. Write scripts/validate-init.ts. Fix bugs.",
+      "dod": [
+        { "criterion": "scripts/validate-init.ts creates a temp directory, runs scaffolding, and verifies agent-registry.json has valid schema", "met": true },
+        { "criterion": "All agent personality files exist in .claude/agents/ with non-empty content", "met": true },
+        { "criterion": "4 skill directories (directive, scout, healthcheck, report) each contain SKILL.md", "met": true },
+        { "criterion": ".context/ tree has vision.md, lessons/index.md, directives/.gitkeep, preferences.md, backlog.json", "met": true },
+        { "criterion": "CLAUDE.md contains an agent roster table with all generated agent names", "met": true }
+      ]
+    },
+    {
+      "id": "directive-lifecycle-validation",
+      "title": "Verify Directive Lifecycle State Machine",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When a directive progresses through pipeline steps, the directive-watcher correctly reads directive.json and handles weight-based step skipping.",
+      "scope": "Zero-trust verification of directive lifecycle. Verify buildPipelineFromDirective, SKIPPED_STEPS, step IDs match between watcher and validate-gate.sh. Write scripts/validate-directive-lifecycle.ts.",
+      "dod": [
+        { "criterion": "scripts/validate-directive-lifecycle.ts verifies all 14 pipeline step IDs match between directive-watcher.ts and validate-gate.sh", "met": true },
+        { "criterion": "Lightweight directive correctly skips challenge, brainstorm, approve (3 steps skipped, 11 active)", "met": true },
+        { "criterion": "Medium directive correctly skips challenge only (1 step skipped, 13 active)", "met": true },
+        { "criterion": "Heavyweight and strategic directives skip nothing (14 active steps each)", "met": true },
+        { "criterion": "A synthetic directive.json at current_step='execute' shows correct step statuses", "met": true }
+      ]
+    },
+    {
+      "id": "integration-smoke-test",
+      "title": "Full Integration Smoke Test with Synthetic Directive",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "complex",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When the full system runs together — adapters, parsers, watchers, hooks, lifecycle — a directive can progress from creation through validation gates without errors.",
+      "scope": "Create comprehensive integration test tying all components together. Write scripts/validate-integration.ts. Create synthetic directive, run hooks, verify adapters, check type-check passes. Fix integration issues.",
+      "dod": [
+        { "criterion": "scripts/validate-integration.ts creates a complete synthetic directive tree and all 3 hook scripts return {valid:true}", "met": true },
+        { "criterion": "validate-gate.sh passes for triage, plan, and execute steps in sequence against the synthetic directive", "met": true },
+        { "criterion": "ClaudeCodeAdapter instantiates without errors and discoverSessionFiles returns a Map", "met": true },
+        { "criterion": "npm run type-check passes with zero errors across the entire codebase", "met": true },
+        { "criterion": "A summary report is printed listing all validation results with pass/fail counts", "met": true }
+      ]
+    }
+  ],
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T02:15:00Z"
+}

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { watch, type FSWatcher } from 'chokidar';
 import type { Aggregator } from '../state/aggregator.js';
 import type { ConductorConfig } from '../types.js';
+import { consumerRoot } from '../paths.js';
 import type {
   FeaturesState,
   BacklogsState,

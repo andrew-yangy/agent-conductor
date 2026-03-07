@@ -12,6 +12,7 @@ import { processEvent } from './hooks/event-receiver.js';
 import { focusPane } from './actions/terminal.js';
 import { sendInput } from './actions/send-input.js';
 import { Notifier } from './notifications/notifier.js';
+import { distDir, consumerRoot, loadAgentRegistry } from './paths.js';
 // --- Load config and initialize ---
 const config = loadConfig();
 const PORT = config.server.port;
@@ -39,8 +40,6 @@ notifier.on('notification_fired', (payload) => {
     }
 });
 // Start file watchers (created via adapter factory methods)
-const claudeWatcher = adapter.createMetadataWatcher(aggregator);
-claudeWatcher.start();
 const sessionWatcher = adapter.createSessionWatcher(aggregator, aggregator.projectFilter);
 sessionWatcher.start();
 const directiveWatcher = new DirectiveWatcher(aggregator, config.claudeHome);
@@ -113,13 +112,15 @@ const server = http.createServer((req, res) => {
         handleDirectiveComplete(req, res);
         return;
     }
+    if (url.pathname === '/api/agent-registry' && req.method === 'GET') {
+        handleGetAgentRegistry(res);
+        return;
+    }
     // --- Static file serving for production ---
-    // In prod (dist-server/server/index.js): up 2 to repo root. In dev: up 1.
-    const distDirProd = path.join(import.meta.dirname, '..', '..', 'dist');
-    const distDirDev = path.join(import.meta.dirname, '..', 'dist');
-    const distDir = fs.existsSync(distDirProd) ? distDirProd : distDirDev;
-    if (fs.existsSync(distDir)) {
-        serveStatic(url.pathname, distDir, res);
+    // Resolve dist/ from the package installation directory (not CWD)
+    const resolvedDistDir = distDir();
+    if (fs.existsSync(resolvedDistDir)) {
+        serveStatic(url.pathname, resolvedDistDir, res);
         return;
     }
     // 404
@@ -154,12 +155,6 @@ aggregator.on('change', (type) => {
             break;
         case 'projects_updated':
             payload = { projects: state.projects };
-            break;
-        case 'teams_updated':
-            payload = { teams: state.teams };
-            break;
-        case 'tasks_updated':
-            payload = { tasksByTeam: state.tasksByTeam, tasksBySession: state.tasksBySession };
             break;
         case 'event_added':
             payload = { events: state.events.slice(0, 1) }; // Just the newest event
@@ -234,7 +229,6 @@ function handleHealth(res) {
         uptime: process.uptime(),
         startedAt: serverStartTime,
         watchers: {
-            claude: claudeWatcher.ready,
             session: sessionWatcher.ready,
             directive: directiveWatcher.ready,
             state: stateWatcher.ready,
@@ -257,21 +251,13 @@ function handleGetDirective(res) {
 // --- Work State Handlers ---
 function handleStateFeatures(url, res) {
     const ws = aggregator.getWorkState();
-    const category = url.searchParams.get('category');
-    let features = ws.features?.features ?? [];
-    if (category) {
-        features = features.filter(f => f.category === category);
-    }
+    const features = ws.features?.features ?? [];
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ generated: ws.features?.generated ?? null, features }));
 }
 function handleStateBacklogs(url, res) {
     const ws = aggregator.getWorkState();
-    const category = url.searchParams.get('category');
-    let items = ws.backlogs?.items ?? [];
-    if (category) {
-        items = items.filter(b => b.category === category);
-    }
+    const items = ws.backlogs?.items ?? [];
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ generated: ws.backlogs?.generated ?? null, items }));
 }
@@ -429,7 +415,7 @@ function handleDirectiveComplete(req, res) {
                 targetDirectiveName = state.directiveName;
             }
             // Update the directive.json status
-            const directiveJsonPath = path.join(process.cwd(), '.context', 'directives', targetDirectiveName, 'directive.json');
+            const directiveJsonPath = path.join(consumerRoot, '.context', 'directives', targetDirectiveName, 'directive.json');
             try {
                 const raw = fs.readFileSync(directiveJsonPath, 'utf-8');
                 const directive = JSON.parse(raw);
@@ -475,6 +461,11 @@ function handleDirectiveComplete(req, res) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Internal error' }));
     });
+}
+function handleGetAgentRegistry(res) {
+    const registry = loadAgentRegistry();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(registry));
 }
 // --- Static file serving ---
 const MIME_TYPES = {
@@ -526,7 +517,6 @@ function shutdown() {
     // Stop notifier
     notifier.stop();
     // Close watchers
-    claudeWatcher.stop().catch(console.error);
     sessionWatcher.stop().catch(console.error);
     directiveWatcher.stop().catch(console.error);
     stateWatcher.stop().catch(console.error);

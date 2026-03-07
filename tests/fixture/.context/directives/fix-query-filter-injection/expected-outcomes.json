@@ -1,0 +1,27 @@
+{
+  "directive_id": "fix-query-filter-injection",
+  "files_modified": [
+    "server/routes/tasks.js"
+  ],
+  "files_created": [],
+  "files_deleted": [],
+  "expected_patterns": [
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "conditions\\.push\\(['\"]status\\s*=\\s*\\?['\"]\\)",
+      "description": "Status filter uses parameterized placeholder instead of string interpolation"
+    },
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "params\\.push\\(req\\.query\\.status\\)",
+      "description": "Status value is pushed to params array for parameterized query"
+    }
+  ],
+  "unexpected_patterns": [
+    {
+      "file": "server/routes/tasks.js",
+      "pattern": "\\$\\{req\\.query\\.status\\}",
+      "description": "String interpolation of status should be removed"
+    }
+  ]
+}

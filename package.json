@@ -3,10 +3,16 @@
   "private": false,
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "gru-ai": "dist-cli/index.js"
+  },
   "files": [
     "dist/",
+    "dist-cli/",
     "dist-server/",
     "cli/templates/",
+    "cli/resolve-pkg-root.sh",
+    ".claude/hooks/",
     ".claude/skills/",
     "LICENSE",
     "README.md"
@@ -15,9 +21,10 @@
     "dev": "concurrently \"tsx watch server/index.ts\" \"vite\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite",
+    "build:cli": "tsc -p cli/tsconfig.json",
     "build:client": "vite build",
     "build:server": "tsc -p server/tsconfig.json",
-    "build": "npm run build:client && npm run build:server",
+    "build": "npm run build:cli && npm run build:client && npm run build:server",
     "prepublishOnly": "npm run build",
     "start": "node dist-server/server/index.js",
     "lint": "eslint .",

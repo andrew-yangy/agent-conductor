@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { watch } from 'chokidar';
+import { directivesDir as resolveDirectivesDir } from '../paths.js';
 // Pipeline steps by weight class. Steps not in a weight's list are skipped.
 const FULL_PIPELINE_STEPS = [
     { id: 'triage', label: 'Triage' },
@@ -137,7 +138,7 @@ export class DirectiveWatcher {
     historyCache = new Map();
     constructor(aggregator, _claudeHome) {
         this.aggregator = aggregator;
-        this.directivesDir = path.join(process.cwd(), '.context', 'directives');
+        this.directivesDir = resolveDirectivesDir();
     }
     start() {
         // Read initial state
@@ -304,6 +305,9 @@ export class DirectiveWatcher {
                     if (activeTask)
                         phase = 'build';
                 }
+                // Extract project-level agent and reviewers arrays
+                const projAgent = Array.isArray(projJson.agent) ? projJson.agent.map(String) : [];
+                const projReviewers = Array.isArray(projJson.reviewers) ? projJson.reviewers.map(String) : [];
                 projects.push({
                     id: projId,
                     title: String(projJson.title ?? projId),
@@ -311,6 +315,8 @@ export class DirectiveWatcher {
                     phase,
                     totalTasks,
                     completedTasks,
+                    agent: projAgent,
+                    reviewers: projReviewers,
                     tasks: tasks.map((t) => ({
                         title: String(t.title ?? ''),
                         status: String(t.status ?? 'pending'),
@@ -369,7 +375,6 @@ export class DirectiveWatcher {
             pipelineSteps,
             currentStepId: currentStep,
             weight: directive.weight,
-            category: directive.category,
             triageRationale: directive.triage?.rationale,
             approvalStatus: directive.planning?.ceo_approval?.status,
             brainstormSummary: directive.pipeline?.brainstorm?.output?.summary,

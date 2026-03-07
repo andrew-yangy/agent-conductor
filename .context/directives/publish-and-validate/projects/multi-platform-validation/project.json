@@ -1,0 +1,107 @@
+{
+  "id": "multi-platform-validation",
+  "title": "Platform Adapters: Aider, Gemini CLI, Codex CLI",
+  "status": "completed",
+  "priority": "P1",
+  "agent": ["devon"],
+  "reviewers": ["sarah"],
+  "description": "Build and validate SpawnAdapter implementations for three additional platforms beyond Claude Code: Aider, Gemini CLI, Codex CLI. Minimal viable adapters — spawn-and-parse, not full feature parity. Document gaps per platform.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["AiderSpawnAdapter", "GeminiCLISpawnAdapter", "CodexCLISpawnAdapter verification", "spawn-and-parse testing", "platform gaps doc"],
+    "out": ["full feature parity", "platform-specific pipeline customization"]
+  },
+  "dod": [
+    { "criterion": "AiderSpawnAdapter and GeminiCLISpawnAdapter implement SpawnAdapter interface and type-check", "met": true },
+    { "criterion": "CodexCLISpawnAdapter verified against current Codex CLI docs with bugs fixed", "met": true },
+    { "criterion": "PLATFORM-ADAPTERS.md documents capability gaps across all 4 adapters", "met": true },
+    { "criterion": "getSpawnAdapter(platform) factory returns correct adapter by platform name", "met": true }
+  ],
+  "browser_test": false,
+  "tasks": [
+    {
+      "id": "research-aider-cli",
+      "title": "Research Aider CLI interface and build AiderSpawnAdapter",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["devon"],
+      "user_scenario": "When the conductor is configured for Aider, it can spawn an Aider agent process and track its completion.",
+      "scope": "Research Aider CLI non-interactive mode. Build AiderSpawnAdapter implementing SpawnAdapter interface. Register export.",
+      "dod": [
+        { "criterion": "server/platform/aider-spawn.ts exists, exports AiderSpawnAdapter implementing SpawnAdapter interface", "met": true },
+        { "criterion": "buildArgs maps SpawnConfig fields to correct Aider CLI flags with comments explaining unsupported fields", "met": true },
+        { "criterion": "Both spawnDetached and spawnTracked modes work with correct binary name and argument structure", "met": true },
+        { "criterion": "AiderSpawnAdapter is exported from server/platform/index.ts", "met": true },
+        { "criterion": "npm run type-check passes with zero errors", "met": true }
+      ]
+    },
+    {
+      "id": "research-gemini-cli",
+      "title": "Research Gemini CLI interface and build GeminiCLISpawnAdapter",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["devon"],
+      "user_scenario": "When the conductor is configured for Gemini CLI, it can spawn a Gemini agent process and track its completion.",
+      "scope": "Research Gemini CLI scripted mode. Build GeminiCLISpawnAdapter implementing SpawnAdapter interface. Register export.",
+      "dod": [
+        { "criterion": "server/platform/gemini-cli-spawn.ts exists, exports GeminiCLISpawnAdapter implementing SpawnAdapter interface", "met": true },
+        { "criterion": "buildArgs maps SpawnConfig fields to correct Gemini CLI flags with comments explaining unsupported fields", "met": true },
+        { "criterion": "Both spawnDetached and spawnTracked modes work with correct binary name and argument structure", "met": true },
+        { "criterion": "GeminiCLISpawnAdapter is exported from server/platform/index.ts", "met": true },
+        { "criterion": "npm run type-check passes with zero errors", "met": true }
+      ]
+    },
+    {
+      "id": "verify-codex-adapter",
+      "title": "Verify and fix CodexCLISpawnAdapter (zero-trust audit)",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["devon"],
+      "user_scenario": "The existing Codex CLI adapter actually works correctly when Codex CLI is available.",
+      "scope": "Zero-trust review of codex-cli-spawn.ts. Verify imports, flags, and interface. Fix issues found.",
+      "dod": [
+        { "criterion": "personality-compiler import verified: compilePersonality signature matches usage, or adapter updated", "met": true },
+        { "criterion": "Codex CLI flags verified against current docs: -q flag confirmed or corrected", "met": true },
+        { "criterion": "Any bugs or outdated assumptions documented as code comments with TODO markers", "met": true },
+        { "criterion": "npm run type-check passes with zero errors", "met": true }
+      ]
+    },
+    {
+      "id": "platform-gaps-doc",
+      "title": "Document platform capability gaps and adapter registry",
+      "status": "completed",
+      "priority": "P1",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["devon"],
+      "user_scenario": "A developer evaluating platforms can read a single document showing what each adapter supports and how to add new adapters.",
+      "scope": "Create PLATFORM-ADAPTERS.md with comparison table. Create getSpawnAdapter factory function in server/platform/index.ts.",
+      "dod": [
+        { "criterion": "server/platform/PLATFORM-ADAPTERS.md exists with comparison table across all 4 adapters", "met": true },
+        { "criterion": "Each adapter's known limitations documented", "met": true },
+        { "criterion": "A getSpawnAdapter(platform) factory exists in server/platform/index.ts", "met": true },
+        { "criterion": "npm run type-check passes with zero errors", "met": true }
+      ]
+    }
+  ],
+  "brainstorm_alignment": {
+    "followed": "Implemented all adapters following the exact same structural pattern as ClaudeCodeSpawnAdapter (buildArgs/buildEnv/spawnDetached/spawnTracked). Mapped SpawnConfig fields to each platform's CLI flags with explicit comments for unsupported fields. Created factory with exhaustive switch and SpawnPlatform type union.",
+    "deviated": "None -- all tasks executed as specified."
+  },
+  "proposed_improvements": [
+    "Extract common spawn boilerplate (spawnDetached/spawnTracked/killAgent/buildEnv) into a BaseSpawnAdapter abstract class -- all 4 adapters share identical implementations for these methods, only buildArgs and pre-spawn hooks differ.",
+    "Add runtime validation that the target binary exists on PATH before spawning (e.g. `which aider`) to give a clear error instead of a cryptic ENOENT from child_process.",
+    "The Codex adapter's codex.md write-before-spawn pattern could race when multiple agents target the same cwd. Consider writing to a temp file or using a lock.",
+    "Consider adding a SpawnConfig.timeout field so tracked spawns can auto-kill after a deadline -- useful for pipeline steps that should not run indefinitely.",
+    "Gemini CLI's flag interface is new and evolving. Pin a known-good version in documentation and re-verify flags periodically."
+  ],
+  "user_walkthrough": "The getSpawnAdapter('aider') factory call returns an AiderSpawnAdapter. Calling spawnAgent({ prompt: 'fix the bug', cwd: '/repo' }, 'tracked') spawns `aider --yes-always --no-git --message 'fix the bug'` and returns a handle with a promise that resolves when Aider exits. The same pattern works for gemini-cli (spawns `gemini -p 'fix the bug'`) and codex-cli (spawns `codex -q 'fix the bug'`). Each adapter documents which SpawnConfig fields are supported vs silently ignored. PLATFORM-ADAPTERS.md provides a single comparison table.",
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T03:00:00Z"
+}

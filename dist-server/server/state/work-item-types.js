@@ -2,8 +2,8 @@
  * Structured work item types for the conductor state system.
  *
  * These types replace free-form markdown as the queryable source of truth.
- * The indexer (scripts/index-state.ts) reads .context/ and produces JSON
- * arrays of these records. The dashboard watches and serves them.
+ * The aggregator reads .context/ and produces typed records in memory.
+ * The dashboard watches and serves them via WebSocket.
  */
 import { z } from 'zod';
 // ---------------------------------------------------------------------------
@@ -36,7 +36,6 @@ export const BaseWorkItem = z.object({
     title: z.string(),
     status: LifecycleState,
     parentId: z.string().optional(),
-    category: z.string().optional(),
     createdAt: z.string(), // ISO date
     updatedAt: z.string(), // ISO date
     tags: z.array(z.string()).optional(),
@@ -46,7 +45,6 @@ export const BaseWorkItem = z.object({
 // ---------------------------------------------------------------------------
 export const FeatureRecord = BaseWorkItem.extend({
     type: z.literal('feature'),
-    category: z.string().optional(),
     taskCount: z.number(),
     completedTaskCount: z.number(),
     hasSpec: z.boolean(),
@@ -64,7 +62,6 @@ export const TaskRecord = BaseWorkItem.extend({
 });
 export const BacklogRecord = BaseWorkItem.extend({
     type: z.literal('backlog-item'),
-    category: z.string().optional(),
     priority: Priority.optional(),
     description: z.string().optional(),
     trigger: z.string().optional(),
@@ -80,7 +77,6 @@ export const DirectiveRecord = BaseWorkItem.extend({
     reportPath: z.string().optional(),
     // Structured fields from directive.json
     weight: z.string().optional(),
-    category: z.string().optional(),
     producedFeatures: z.array(z.string()).optional(),
     report: z.string().nullable().optional(),
     backlogSources: z.array(z.string()).optional(),

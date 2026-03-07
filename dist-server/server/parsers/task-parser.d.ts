@@ -1,10 +1,7 @@
 import type { TeamTask } from '../types.js';
-export declare function parseTeamTasks(claudeHome: string, teamName: string): TeamTask[];
-export declare function parseAllTeamTasks(claudeHome: string, teamNames: string[]): Record<string, TeamTask[]>;
 /**
- * Parse all task directories, splitting into team-named and UUID-named (session) dirs.
+ * Parse all task directories, returning UUID-named (session) dirs only.
  */
-export declare function parseAllTasks(claudeHome: string, knownTeamNames: Set<string>): {
-    byTeam: Record<string, TeamTask[]>;
+export declare function parseAllTasks(claudeHome: string, _knownTeamNames: Set<string>): {
     bySession: Record<string, TeamTask[]>;
 };

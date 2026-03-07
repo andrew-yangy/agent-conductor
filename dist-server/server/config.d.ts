@@ -6,4 +6,3 @@ import type { ConductorConfig, ProjectConfig } from './types.js';
  */
 export declare function discoverProjects(claudeHome: string): ProjectConfig[];
 export declare function loadConfig(): ConductorConfig;
-export declare function saveConfig(config: ConductorConfig): void;

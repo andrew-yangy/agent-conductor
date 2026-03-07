@@ -12,6 +12,7 @@ import { processEvent } from './hooks/event-receiver.js';
 import { focusPane } from './actions/terminal.js';
 import { sendInput } from './actions/send-input.js';
 import { Notifier } from './notifications/notifier.js';
+import { distDir, consumerRoot, loadAgentRegistry } from './paths.js';
 import type { WsMessage, WsMessageType, SendInputRequest } from './types.js';
 
 // --- Load config and initialize ---
@@ -138,13 +139,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/agent-registry' && req.method === 'GET') {
+    handleGetAgentRegistry(res);
+    return;
+  }
+
   // --- Static file serving for production ---
-  // In prod (dist-server/server/index.js): up 2 to repo root. In dev: up 1.
-  const distDirProd = path.join(import.meta.dirname, '..', '..', 'dist');
-  const distDirDev = path.join(import.meta.dirname, '..', 'dist');
-  const distDir = fs.existsSync(distDirProd) ? distDirProd : distDirDev;
-  if (fs.existsSync(distDir)) {
-    serveStatic(url.pathname, distDir, res);
+  // Resolve dist/ from the package installation directory (not CWD)
+  const resolvedDistDir = distDir();
+  if (fs.existsSync(resolvedDistDir)) {
+    serveStatic(url.pathname, resolvedDistDir, res);
     return;
   }
 
@@ -470,7 +474,7 @@ function handleDirectiveComplete(req: http.IncomingMessage, res: http.ServerResp
       }
 
       // Update the directive.json status
-      const directiveJsonPath = path.join(process.cwd(), '.context', 'directives', targetDirectiveName, 'directive.json');
+      const directiveJsonPath = path.join(consumerRoot, '.context', 'directives', targetDirectiveName, 'directive.json');
       try {
         const raw = fs.readFileSync(directiveJsonPath, 'utf-8');
         const directive = JSON.parse(raw);
@@ -518,6 +522,12 @@ function handleDirectiveComplete(req: http.IncomingMessage, res: http.ServerResp
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal error' }));
   });
+}
+
+function handleGetAgentRegistry(res: http.ServerResponse): void {
+  const registry = loadAgentRegistry();
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(registry));
 }
 
 // --- Static file serving ---

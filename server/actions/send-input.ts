@@ -16,11 +16,7 @@ function validateOwnership(
   aggregator: Aggregator,
 ): boolean {
   const state = aggregator.getState();
-  const ownedBySession = state.sessions.some((s) => s.paneId === paneId);
-  const ownedByMember = state.teams.some((team) =>
-    team.members.some((member) => member.tmuxPaneId === paneId)
-  );
-  return ownedBySession || ownedByMember;
+  return state.sessions.some((s) => s.paneId === paneId);
 }
 
 async function sendInputTmux(

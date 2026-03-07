@@ -1,0 +1,94 @@
+{
+  "id": "benchmark-fixture",
+  "title": "Build Repeatable Test Fixture with Predefined Directives",
+  "status": "completed",
+  "priority": "P0",
+  "agent": ["sam"],
+  "reviewers": ["sarah"],
+  "description": "Create a self-contained fixture project under tests/fixture/ containing: (1) small Express API + React frontend (10-15 files), (2) 3-4 predefined directives of varying weight, (3) 1-2 pre-selected SWE-bench Lite issues, (4) validation script that checks post-run file state against expected outcomes.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["tests/fixture/ project", "Express API + React frontend", "predefined directives", "validation script"],
+    "out": ["SWE-bench integration framework", "CI pipeline"]
+  },
+  "dod": [
+    { "criterion": "tests/fixture/ contains 10-15 source files (Express API + React frontend) with intentional issues", "met": true },
+    { "criterion": "3-4 predefined directives exist with directive.json, directive.md, and expected-outcomes.json", "met": true },
+    { "criterion": "validate.sh checks post-run file state against expected outcomes and reports pass/fail", "met": true }
+  ],
+  "browser_test": false,
+  "tasks": [
+    {
+      "id": "scaffold-fixture-project",
+      "title": "Scaffold fixture directory with Express API + React frontend",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When a developer runs the benchmark suite, they have a realistic but small target codebase that exercises multi-file, multi-directory changes.",
+      "scope": "Create tests/fixture/ with a minimal but realistic project: Express API (3-4 route files, 1 middleware, 1 db utility) and React frontend (3-4 components, 1 hook, 1 API client). Total 10-15 source files. Code should be intentionally imperfect — containing a real bug, a missing feature gap, and a refactor opportunity.",
+      "dod": [
+        { "criterion": "tests/fixture/ directory exists with Express API (server/) and React frontend (src/) subdirectories", "met": true },
+        { "criterion": "Total source file count is between 10 and 15 files (excluding package.json and config)", "met": true },
+        { "criterion": "Code contains at least one intentional bug, one missing feature gap, and one refactor opportunity", "met": true },
+        { "criterion": "A tests/fixture/README.md documents the project structure and lists the intentional issues with file:line references", "met": true }
+      ]
+    },
+    {
+      "id": "create-predefined-directives",
+      "title": "Create 3-4 predefined directives of varying weight with expected outcomes",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "When the benchmark runs, it feeds each predefined directive through the pipeline and compares actual file changes against documented expected outcomes.",
+      "scope": "Create 3-4 directives under tests/fixture/.context/directives/, each with directive.json and directive.md. Directives: lightweight bug fix, medium feature addition, heavyweight refactor. Each includes expected-outcomes.json.",
+      "dod": [
+        { "criterion": "3-4 directive directories exist under tests/fixture/.context/directives/ each with valid directive.json and directive.md", "met": true },
+        { "criterion": "Each directive.md has a clear objective, context section referencing specific fixture files, and success criteria", "met": true },
+        { "criterion": "Each directive directory contains expected-outcomes.json with files_modified, files_created, files_deleted, and expected_patterns", "met": true },
+        { "criterion": "Directives span at least 2 different weight classes (lightweight, medium, or heavyweight)", "met": true },
+        { "criterion": "Expected outcomes are achievable — each expected file modification targets a file that exists in the fixture", "met": true }
+      ]
+    },
+    {
+      "id": "add-swebench-directives",
+      "title": "Add 1-2 SWE-bench Lite issues as predefined directives",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "The benchmark includes industry-standard SWE-bench issues so pipeline quality can be compared against external baselines.",
+      "scope": "Select 1-2 SWE-bench Lite issues that fit the fixture project's scale. Create directives with expected-outcomes.json with the known solution's file changes.",
+      "dod": [
+        { "criterion": "1-2 additional directive directories exist under tests/fixture/.context/directives/ with valid directive.json, directive.md, and expected-outcomes.json", "met": true },
+        { "criterion": "Each directive.md cites the original SWE-bench issue ID or describes the adapted issue source", "met": true },
+        { "criterion": "The buggy code targeted by each issue exists in the fixture source files", "met": true },
+        { "criterion": "Expected-outcomes.json for each contains the verified correct fix patterns", "met": true }
+      ]
+    },
+    {
+      "id": "build-validation-script",
+      "title": "Build validation script that checks post-run outcomes against expectations",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "review"],
+      "agent": ["sam"],
+      "user_scenario": "After running the pipeline against fixture directives, a developer runs a single validation command that reports pass/fail per directive.",
+      "scope": "Create tests/fixture/validate.sh (bash script, no external deps beyond jq and grep) that takes a directive ID, reads expected-outcomes.json, checks file state, and outputs structured pass/fail report.",
+      "dod": [
+        { "criterion": "tests/fixture/validate.sh exists, is executable, and runs without errors when invoked with --dry-run", "met": true },
+        { "criterion": "Script accepts a directive ID argument and 'all' to validate all directives", "met": true },
+        { "criterion": "For each directive, script checks: files_modified, files_created, files_deleted, and expected_patterns", "met": true },
+        { "criterion": "Output clearly shows per-directive, per-check pass/fail with expected vs actual values on failure", "met": true },
+        { "criterion": "Running validate.sh on the unmodified fixture correctly reports failures (since no fixes have been applied yet)", "met": true }
+      ]
+    }
+  ],
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T02:15:00Z"
+}

@@ -23,8 +23,8 @@ function parseRawTask(raw) {
         blockedBy: raw.blockedBy ?? [],
     };
 }
-export function parseTeamTasks(claudeHome, teamName) {
-    const tasksDir = path.join(claudeHome, 'tasks', teamName);
+function parseTasksDir(claudeHome, dirName) {
+    const tasksDir = path.join(claudeHome, 'tasks', dirName);
     try {
         if (!fs.existsSync(tasksDir))
             return [];
@@ -50,19 +50,11 @@ export function parseTeamTasks(claudeHome, teamName) {
         return [];
     }
 }
-export function parseAllTeamTasks(claudeHome, teamNames) {
-    const result = {};
-    for (const teamName of teamNames) {
-        result[teamName] = parseTeamTasks(claudeHome, teamName);
-    }
-    return result;
-}
 /**
- * Parse all task directories, splitting into team-named and UUID-named (session) dirs.
+ * Parse all task directories, returning UUID-named (session) dirs only.
  */
-export function parseAllTasks(claudeHome, knownTeamNames) {
+export function parseAllTasks(claudeHome, _knownTeamNames) {
     const tasksRoot = path.join(claudeHome, 'tasks');
-    const byTeam = {};
     const bySession = {};
     let dirs;
     try {
@@ -76,22 +68,15 @@ export function parseAllTasks(claudeHome, knownTeamNames) {
         });
     }
     catch {
-        return { byTeam, bySession };
+        return { bySession };
     }
     for (const dirName of dirs) {
-        const tasks = parseTeamTasks(claudeHome, dirName);
+        if (!UUID_DIR_REGEX.test(dirName))
+            continue;
+        const tasks = parseTasksDir(claudeHome, dirName);
         if (tasks.length === 0)
             continue;
-        if (knownTeamNames.has(dirName)) {
-            byTeam[dirName] = tasks;
-        }
-        else if (UUID_DIR_REGEX.test(dirName)) {
-            bySession[dirName] = tasks;
-        }
-        else {
-            // Unknown non-UUID dir — include in byTeam as a fallback
-            byTeam[dirName] = tasks;
-        }
+        bySession[dirName] = tasks;
     }
-    return { byTeam, bySession };
+    return { bySession };
 }

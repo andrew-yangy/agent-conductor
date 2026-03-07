@@ -1,0 +1,101 @@
+{
+  "goal": "Ship gruai as a portable, installable package that works outside the mono-repo — with verified multi-platform support, repeatable benchmark fixtures, and zero trust in prior adapter code.",
+  "challenges": {
+    "risks": [
+      "Multi-platform adapters (Aider, Gemini CLI) require understanding each tool's CLI interface, output format, and session model — research cost could balloon if docs are sparse or APIs are unstable.",
+      "Building a realistic fixture project (Express + React, 10-15 files, 3-4 directives, SWE-bench issues) is itself moderate-complexity work that could sprawl if not tightly scoped.",
+      "Zero-trust on prior adapters means E2E validation may uncover deep breakage in PlatformAdapter/SpawnAdapter that cascades into multi-platform work — sequencing matters."
+    ],
+    "over_engineering_flags": [
+      "SWE-bench Lite integration adds complexity — limit to 1-2 pre-selected issues with known solutions, not a general SWE-bench runner.",
+      "Four platform adapters in one directive is ambitious — Aider and Gemini CLI adapters should be minimal spawn-and-parse, not full feature parity with Claude Code adapter."
+    ],
+    "recommendation": "Proceed with all 7 projects. Sequence benchmark-fixture before E2E and multi-platform so they have a real test target."
+  },
+  "projects": [
+    {
+      "id": "path-resolution-and-packaging",
+      "title": "Fix path resolution for portable installation",
+      "priority": "P0",
+      "scope_summary": "Fix the foundational blocker: all skills, hooks, and pipeline docs that reference cli/templates/, .claude/hooks/, or .claude/skills/ relative to CWD must resolve correctly when gruai is installed as npm package. Add hooks to package.json files array. Create .gruai/ as canonical home with symlinks to platform-specific dirs. Replace hardcoded path assumptions with package-relative resolution.",
+      "complexity": "moderate",
+      "agent": ["devon"],
+      "reviewers": ["sarah"],
+      "auditor": "sarah",
+      "depends_on": [],
+      "touches_files_hint": ["package.json", ".claude/skills/gruai-agents/SKILL.md", ".claude/skills/gruai-config/SKILL.md", ".claude/skills/directive/docs/pipeline/*.md", ".claude/hooks/*.sh", "server/config.ts", "server/index.ts"]
+    },
+    {
+      "id": "cli-entrypoint",
+      "title": "Create npx gru-ai Interactive CLI",
+      "priority": "P0",
+      "scope_summary": "Create CLI entrypoint for npx gru-ai. Add bin field to package.json. Interactive setup via readline: project name, team size (Starter/Standard/Full/Custom, min COO+CTO+1 builder), agent name customization, platform (Claude Code/Aider/Gemini CLI/Codex/Other). Scaffolds .gruai/ canonical home, symlinks platform dirs, creates .context/ tree, agent personalities, registry, CLAUDE.md. Includes 'gruai start' subcommand to launch dashboard server.",
+      "complexity": "complex",
+      "agent": ["jordan"],
+      "reviewers": ["sarah", "marcus"],
+      "auditor": "sarah",
+      "depends_on": ["path-resolution-and-packaging"],
+      "touches_files_hint": ["package.json", "cli/bin.ts", "cli/setup.ts", "cli/prompts.ts", "cli/scaffold.ts"]
+    },
+    {
+      "id": "custom-team-sizes",
+      "title": "Variable Team Size Support",
+      "priority": "P1",
+      "scope_summary": "Refactor /gruai-agents skill and CLI scaffolding to support Starter (4: COO+CTO+FS+CEO), Standard (7: +CPO+FE+BE+QA), Full (11: all roles), Custom (pick from role list, minimum COO+CTO+1 builder enforced). Agent-registry.json handles variable teams. Team definitions adjust membership. Game dashboard renders partial teams gracefully.",
+      "complexity": "moderate",
+      "agent": ["devon"],
+      "reviewers": ["marcus"],
+      "auditor": "sarah",
+      "depends_on": ["cli-entrypoint"],
+      "touches_files_hint": [".claude/skills/gruai-agents/SKILL.md", "cli/scaffold.ts", "cli/templates/gruai.config.json.template"]
+    },
+    {
+      "id": "dashboard-packaging",
+      "title": "Ship Dashboard and Game Server in npm Package",
+      "priority": "P1",
+      "scope_summary": "Ensure dist/ (game dashboard) and dist-server/ (monitoring server) are correctly built, included in package.json, and functional when installed from npm. Dashboard is NOT optional — it ships with the package. Server resolves paths relative to consumer project. 'gruai start' command launches server and serves dashboard. Verify game renders with consumer's agent-registry.json including partial teams.",
+      "complexity": "moderate",
+      "agent": ["riley"],
+      "reviewers": ["sarah"],
+      "auditor": "sarah",
+      "depends_on": ["path-resolution-and-packaging"],
+      "touches_files_hint": ["package.json", "server/index.ts", "server/config.ts", "cli/bin.ts", "vite.config.ts"]
+    },
+    {
+      "id": "benchmark-fixture",
+      "title": "Build Repeatable Test Fixture with Predefined Directives",
+      "priority": "P0",
+      "scope_summary": "Create a self-contained fixture project under tests/fixture/ containing: (1) small Express API + React frontend (10-15 files), (2) 3-4 predefined directives of varying weight — lightweight bug fix, medium feature addition, heavyweight refactor, (3) 1-2 pre-selected SWE-bench Lite issues with known solutions as additional directives, (4) validation script that checks post-run file state against expected outcomes. Each directive has directive.json, directive.md, and documented expected outcomes.",
+      "complexity": "moderate",
+      "agent": ["sam"],
+      "reviewers": ["sarah"],
+      "auditor": "sarah",
+      "depends_on": [],
+      "touches_files_hint": ["tests/fixture/", "tests/fixture/.context/", "tests/fixture/src/", "tests/fixture/server/", "tests/fixture/validate-outcomes.sh"]
+    },
+    {
+      "id": "end-to-end-validation",
+      "title": "Zero-Trust E2E Validation of Full Pipeline",
+      "priority": "P0",
+      "scope_summary": "Verify the full pipeline works end-to-end from scratch, trusting NOTHING from prior work. Steps: (1) verify PlatformAdapter and ClaudeCodeAdapter actually work — if broken, fix them, (2) run npx gru-ai init against the benchmark fixture with at least 2 team configs (Starter and Standard), (3) execute each predefined directive through full pipeline (triage through completion), (4) validate outputs against expected outcomes. Explicitly test: CLI spawning, session discovery, JSONL parsing, directive lifecycle, hook execution, review gates. Fix any breakage discovered.",
+      "complexity": "complex",
+      "agent": ["sam"],
+      "reviewers": ["sarah", "marcus"],
+      "auditor": "sarah",
+      "depends_on": ["cli-entrypoint", "custom-team-sizes", "dashboard-packaging", "benchmark-fixture"],
+      "touches_files_hint": ["server/platform/claude-code.ts", "server/platform/types.ts", "server/platform/claude-code-spawn.ts", "server/platform/spawn-adapter.ts", "tests/e2e/"]
+    },
+    {
+      "id": "multi-platform-validation",
+      "title": "Platform Adapters: Aider, Gemini CLI, Codex CLI",
+      "priority": "P1",
+      "scope_summary": "Build and validate SpawnAdapter implementations for three additional platforms beyond Claude Code: (1) Aider — research CLI interface, build AiderSpawnAdapter, spawn and parse output, (2) Gemini CLI — research CLI interface, build GeminiCLISpawnAdapter, spawn and parse, (3) Codex CLI — verify existing CodexCLISpawnAdapter actually works (zero trust). Run each adapter against at least 1 fixture directive. Minimal viable adapters — spawn-and-parse, not full feature parity. Document gaps per platform.",
+      "complexity": "complex",
+      "agent": ["devon"],
+      "reviewers": ["sarah"],
+      "auditor": "sarah",
+      "depends_on": ["end-to-end-validation", "benchmark-fixture"],
+      "touches_files_hint": ["server/platform/aider-spawn.ts", "server/platform/gemini-cli-spawn.ts", "server/platform/codex-cli-spawn.ts", "server/platform/spawn-adapter.ts", "server/platform/types.ts"]
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "id": "cli-entrypoint",
+  "title": "Create npx gru-ai Interactive CLI",
+  "status": "completed",
+  "priority": "P0",
+  "agent": ["jordan"],
+  "reviewers": ["sarah", "marcus"],
+  "description": "Create CLI entrypoint for npx gru-ai. Add bin field to package.json. Interactive setup via readline: project name, team size, agent name customization, platform selection. Scaffolds .gruai/ canonical home, symlinks platform dirs, creates .context/ tree, agent personalities, registry, CLAUDE.md. Includes 'gruai start' subcommand to launch dashboard server.",
+  "source_directive": "publish-and-validate",
+  "scope": {
+    "in": ["package.json bin field", "cli/index.ts entrypoint", "cli/commands/init.ts interactive flow", "cli/commands/scaffold.ts", "cli/commands/start.ts", "cli/commands/update.ts", "gruai start subcommand"],
+    "out": ["dashboard server implementation", "platform adapters"]
+  },
+  "dod": [
+    { "criterion": "npx gru-ai shows help with init, start, update subcommands", "met": true },
+    { "criterion": "npx gru-ai init walks through interactive setup (project name, team preset, agent names, platform) using only Node readline", "met": true },
+    { "criterion": "Init scaffolds .gruai/, .context/ tree, agent files, registry, CLAUDE.md, and gruai.config.json", "met": true },
+    { "criterion": "npx gru-ai start launches the dashboard server", "met": true },
+    { "criterion": "npm run build && npm pack produces a working tarball with dist-cli/", "met": true }
+  ],
+  "browser_test": false,
+  "tasks": [
+    {
+      "id": "cli-scaffold-and-bin",
+      "title": "Create CLI entrypoint with bin field and subcommand routing",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["jordan"],
+      "user_scenario": "User runs npx gru-ai and sees a help message with available subcommands (init, start, update); running with no args shows help.",
+      "scope": "Create cli/index.ts as the CLI entrypoint with a shebang line. Add bin field to package.json pointing to dist-cli/index.js. Add build:cli script and update files array. Implement subcommand routing: parse process.argv for init, start, update, or show help.",
+      "dod": [
+        { "criterion": "cli/index.ts exists with #!/usr/bin/env node shebang and subcommand router (init, start, update, help)", "met": true },
+        { "criterion": "package.json has bin field mapping 'gru-ai' to 'dist-cli/index.js'", "met": true },
+        { "criterion": "package.json build script includes cli build, files array includes dist-cli/", "met": true },
+        { "criterion": "npm run build:cli compiles cli/index.ts without TypeScript errors", "met": true },
+        { "criterion": "Running node dist-cli/index.js with no args prints help text listing init, start, and update subcommands", "met": true }
+      ]
+    },
+    {
+      "id": "interactive-init-flow",
+      "title": "Implement interactive init setup with readline prompts",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "complex",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["jordan"],
+      "user_scenario": "User runs npx gru-ai init and is walked through an interactive setup: project name, team size preset, optional agent name customization, and platform selection.",
+      "scope": "Create cli/commands/init.ts with the full interactive init flow using Node readline (no external deps). Prompts: project name, team size preset, agent name customization, platform selection. Store collected config in a typed InitConfig object.",
+      "dod": [
+        { "criterion": "cli/commands/init.ts exists using only Node readline — no external prompt libraries added to dependencies", "met": true },
+        { "criterion": "All four prompt stages work: project name, team preset, agent name customization, platform selection", "met": true },
+        { "criterion": "Custom team preset enforces minimum of COO + CTO + 1 builder role; shows error and re-prompts if not met", "met": true },
+        { "criterion": "InitConfig type is exported with fields: projectName, preset, agents (array with id/name/role), platform", "met": true },
+        { "criterion": "Subcommand router in cli/index.ts calls init handler when argv includes 'init'", "met": true }
+      ]
+    },
+    {
+      "id": "scaffolding-engine",
+      "title": "Scaffold .gruai/ home, .context/ tree, agents, registry, and CLAUDE.md",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "complex",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["jordan"],
+      "user_scenario": "After completing the init prompts, the user's project is fully scaffolded with .gruai/ directory, .context/ tree, agent personality files, agent-registry.json, CLAUDE.md, and gruai.config.json — ready to run /directive.",
+      "scope": "Create cli/commands/scaffold.ts that takes InitConfig and scaffolds everything: .gruai/ canonical home, platform symlinks, .context/ tree, agent personality files, agent-registry.json, CLAUDE.md, gruai.config.json, welcome directive.",
+      "dod": [
+        { "criterion": "Running full init flow creates .gruai/ directory and correct platform symlink", "met": true },
+        { "criterion": "All templates from cli/templates/ are used — no hardcoded template content in scaffold code", "met": true },
+        { "criterion": ".context/ tree is created with vision.md, lessons/index.md, preferences.md, backlog.json, directives/.gitkeep, reports/.gitkeep", "met": true },
+        { "criterion": "Agent files are generated only for roles matching the selected preset, using cli/templates/agent-roles/ templates", "met": true },
+        { "criterion": "agent-registry.json contains only agents/teams for the selected preset", "met": true }
+      ]
+    },
+    {
+      "id": "gruai-start-command",
+      "title": "Implement 'gruai start' subcommand to launch dashboard server",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "simple",
+      "phases": ["build", "review"],
+      "agent": ["jordan"],
+      "user_scenario": "User runs npx gru-ai start and the dashboard server launches, serving the web UI at localhost with live agent status.",
+      "scope": "Create cli/commands/start.ts. Check for initialization, then launch the dashboard server. Support --port flag. Handle SIGINT/SIGTERM for clean shutdown.",
+      "dod": [
+        { "criterion": "cli/commands/start.ts exists and is wired into the subcommand router", "met": true },
+        { "criterion": "Running 'gruai start' in an initialized project spawns the dashboard server process", "met": true },
+        { "criterion": "Running 'gruai start' in an uninitialized project prints an error directing user to run 'gru-ai init' first", "met": true },
+        { "criterion": "--port flag is accepted and passed through to the server process", "met": true }
+      ]
+    },
+    {
+      "id": "cli-integration-and-polish",
+      "title": "End-to-end integration, error handling, and build verification",
+      "status": "completed",
+      "priority": "P0",
+      "complexity": "moderate",
+      "phases": ["build", "code-review", "review"],
+      "agent": ["jordan"],
+      "user_scenario": "User can install gru-ai globally or via npx, run the full init flow, and start the dashboard — with clear error messages for any failure mode.",
+      "scope": "Wire all pieces together and harden. Verify npx flow, add error handling, add gruai update subcommand, add colored terminal output, ensure build and npm pack work correctly.",
+      "dod": [
+        { "criterion": "npm run build succeeds including CLI build, and npm pack produces a tarball containing dist-cli/index.js with correct shebang", "met": true },
+        { "criterion": "Re-running 'gru-ai init' in an already-initialized project warns and asks before overwriting", "met": true },
+        { "criterion": "'gru-ai update' backs up existing skills and re-renders CLAUDE.md preserving agent names", "met": true },
+        { "criterion": "All CLI output uses colored ANSI formatting for errors (red), success (green), and info (blue/cyan)", "met": true },
+        { "criterion": "TypeScript strict mode passes for all cli/ files — no type errors", "met": true }
+      ]
+    }
+  ],
+  "created": "2026-03-08T01:30:00Z",
+  "updated": "2026-03-08T03:10:00Z"
+}

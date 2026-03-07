@@ -127,7 +127,6 @@ export class StateWatcher {
                     if (!dirJson)
                         continue;
                     const dirStatus = this.mapDirectiveStatus(String(dirJson.status ?? 'pending'));
-                    const category = dirJson.category ? String(dirJson.category) : undefined;
                     allDirectives.push({
                         id: dirId,
                         type: 'directive',
@@ -137,7 +136,6 @@ export class StateWatcher {
                         updatedAt: String(dirJson.updated ?? dirJson.created ?? generated),
                         projects: [],
                         weight: dirJson.weight ? String(dirJson.weight) : undefined,
-                        category,
                         producedFeatures: Array.isArray(dirJson.produced_features) ? dirJson.produced_features.map(String) : undefined,
                         report: dirJson.report != null ? String(dirJson.report) : null,
                         backlogSources: Array.isArray(dirJson.backlog_sources) ? dirJson.backlog_sources.map(String) : undefined,
@@ -161,7 +159,6 @@ export class StateWatcher {
                                 type: 'feature',
                                 title: String(projJson.title ?? projId),
                                 status: projStatus,
-                                category,
                                 createdAt: String(projJson.created ?? generated),
                                 updatedAt: String(projJson.updated ?? generated),
                                 taskCount,

@@ -52,8 +52,6 @@ function stubAggregator() {
     return {
         refreshSessions() { },
         updateSessionFromFileState() { },
-        refreshTeams() { },
-        refreshTasks() { },
     };
 }
 // ---------------------------------------------------------------------------

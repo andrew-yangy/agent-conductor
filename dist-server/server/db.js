@@ -56,21 +56,6 @@ export function getRecentEvents(limit = 100) {
         metadata: row.metadata_json ? JSON.parse(row.metadata_json) : undefined,
     }));
 }
-export function getEventsBySession(sessionId, limit = 50) {
-    const database = getDb();
-    const rows = database
-        .prepare(`SELECT * FROM events WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?`)
-        .all(sessionId, limit);
-    return rows.map((row) => ({
-        id: row.id,
-        type: row.type,
-        sessionId: row.session_id,
-        timestamp: row.timestamp,
-        message: row.message,
-        project: row.project ?? undefined,
-        metadata: row.metadata_json ? JSON.parse(row.metadata_json) : undefined,
-    }));
-}
 export function closeDb() {
     if (db) {
         db.close();
