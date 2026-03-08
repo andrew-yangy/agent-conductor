@@ -6,6 +6,15 @@ export type Platform = 'claude-code' | 'aider' | 'gemini-cli' | 'codex' | 'other
 
 export type PresetName = 'starter' | 'standard' | 'full' | 'custom';
 
+export interface AgentGameConfig {
+  palette: number;
+  hueShift?: number;
+  seatId: string;
+  position: { row: number; col: number };
+  color: string;
+  isPlayer?: boolean;
+}
+
 export interface AgentEntry {
   id: string;
   name: string;
@@ -21,6 +30,7 @@ export interface AgentEntry {
   borderColor: string;
   dotColor: string;
   isCsuite: boolean;
+  game: AgentGameConfig | null;
 }
 
 export interface InitConfig {

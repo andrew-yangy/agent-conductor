@@ -144,6 +144,7 @@ function scaffoldRegistry(projectPath: string, agents: AgentEntry[], preset: str
     borderColor: 'border-foreground/30',
     dotColor: 'bg-foreground',
     isCsuite: true,
+    game: { palette: 0, seatId: 'seat-1', position: { row: 3, col: 5 }, color: 'gold', isPlayer: true },
   };
 
   const agentEntries = agents.map(a => ({
@@ -160,6 +161,7 @@ function scaffoldRegistry(projectPath: string, agents: AgentEntry[], preset: str
     borderColor: a.borderColor,
     dotColor: a.dotColor,
     isCsuite: a.isCsuite,
+    game: a.game,
   }));
 
   const teams = buildTeams(agents);
@@ -308,6 +310,8 @@ function scaffoldGruaiConfig(projectPath: string, config: InitConfig): void {
 
   const content = template
     .replace(/\{\{PROJECT_NAME\}\}/g, config.projectName)
+    .replace(/\{\{PRESET\}\}/g, config.preset)
+    .replace(/\{\{PLATFORM\}\}/g, config.platform)
     .replace(/\{\{AGENTS_JSON\}\}/g, indentedAgentsJson);
 
   writeFile(path.join(projectPath, 'gruai.config.json'), content);
@@ -352,7 +356,7 @@ export async function runScaffold(config: InitConfig): Promise<void> {
 
   // 2. Agent registry
   scaffoldRegistry(config.projectPath, config.agents, config.preset);
-  console.log(c.green(`  [+] Registry:    .gruai/agent-registry.json (${config.agents.length} agents, ${config.preset} preset)`));
+  console.log(c.green(`  [+] Registry:    .gruai/agent-registry.json (${config.agents.length} agents + CEO, ${config.preset} preset)`));
 
   // 3. Agent personality files
   const agentCount = scaffoldAgents(config.projectPath, config.agents);

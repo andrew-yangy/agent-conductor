@@ -3,9 +3,9 @@
 // Fit-width layout: canvas sized to full map, native browser scrolling
 // ---------------------------------------------------------------------------
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { OFFICE_LAYOUT } from './office-layout'
-import { OFFICE_AGENTS, type InteractionType } from './types'
+import { type AgentDesk, type InteractionType } from './types'
 import type { AgentStatus, SessionInfo } from './pixel-types'
 import { OfficeState } from './engine/officeState'
 import { renderFrame, type SelectionRenderState, type IdentityOverlay } from './engine/renderer'
@@ -15,22 +15,7 @@ import { loadAllAssets, onTilesetReady } from './asset-loader'
 import { CharacterState, Direction } from './pixel-types'
 import { ROOM_ZONES, getZoneAt } from './engine/roomZones'
 
-// Build id -> agentName lookup (CEO shows as "You")
-const AGENT_ID_TO_NAME = new Map(
-  OFFICE_AGENTS.map((a) => [a.id, a.isPlayer ? 'You' : a.agentName])
-)
-// Build agentName -> id reverse lookup
-const AGENT_NAME_TO_ID = new Map(OFFICE_AGENTS.map((a) => [a.agentName, a.id]))
-// Build id -> real agentName (not "You") for item click resolution
-const AGENT_ID_TO_REAL_NAME = new Map(OFFICE_AGENTS.map((a) => [a.id, a.agentName]))
-
-// Build id -> hex color lookup
-const AGENT_ID_TO_COLOR = new Map(
-  OFFICE_AGENTS.map((a) => [a.id, COLOR_NAME_TO_HEX[a.color] ?? '#9ca3af'])
-)
-// Find the player-controlled CEO agent
-const CEO_AGENT = OFFICE_AGENTS.find((a) => a.isPlayer) ?? null
-const CEO_ID = CEO_AGENT?.id ?? null
+// Agent lookup maps — built from runtime agents inside the component via useMemo
 
 // Zoom bounds
 const MIN_ZOOM_ABSOLUTE = 1
@@ -70,6 +55,8 @@ export interface ClickedItem {
 }
 
 interface CanvasOfficeProps {
+  /** Runtime office agents from registry (with game config) */
+  agents: AgentDesk[]
   onAgentClick?: (agentName: string) => void
   onItemClick?: (item: ClickedItem | null) => void
   agentStatuses: Record<string, AgentStatus>
@@ -87,6 +74,7 @@ interface CanvasOfficeProps {
 }
 
 export default function CanvasOffice({
+  agents,
   onAgentClick,
   onItemClick,
   agentStatuses,
@@ -97,6 +85,14 @@ export default function CanvasOffice({
   reviewInteractions,
   selectedAgentName,
 }: CanvasOfficeProps) {
+  // Build lookup maps from runtime agents
+  const AGENT_ID_TO_NAME = useMemo(() => new Map(agents.map((a) => [a.id, a.isPlayer ? 'You' : a.agentName])), [agents])
+  const AGENT_NAME_TO_ID = useMemo(() => new Map(agents.map((a) => [a.agentName, a.id])), [agents])
+  const AGENT_ID_TO_REAL_NAME = useMemo(() => new Map(agents.map((a) => [a.id, a.agentName])), [agents])
+  const AGENT_ID_TO_COLOR = useMemo(() => new Map(agents.map((a) => [a.id, COLOR_NAME_TO_HEX[a.color] ?? '#9ca3af'])), [agents])
+  const CEO_AGENT = useMemo(() => agents.find((a) => a.isPlayer) ?? null, [agents])
+  const CEO_ID = CEO_AGENT?.id ?? null
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const stateRef = useRef<OfficeState | null>(null)
@@ -123,8 +119,9 @@ export default function CanvasOffice({
 
   // Initialize office state + add agents + load assets
   useEffect(() => {
+    if (agents.length === 0) return // Wait for runtime agents to load
     const state = new OfficeState(OFFICE_LAYOUT)
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of agents) {
       state.addAgent(agent.id, agent.palette, agent.hueShift, agent.seatId, true)
     }
     // Mark CEO as player-controlled and start idle (not typing at desk)
@@ -141,20 +138,19 @@ export default function CanvasOffice({
       state.cameraFollowId = CEO_ID
     }
     stateRef.current = state
-    // DEV: expose for debugging (remove before shipping)
     ;(window as any).__officeState = state
     loadAllAssets()
     onTilesetReady(() => {
       state.rebuildFurnitureInstances()
     })
-  }, [])
+  }, [agents, CEO_ID])
 
   // Sync agent statuses from props (debounced inside OfficeState)
   // Skip player-controlled CEO
   useEffect(() => {
     const state = stateRef.current
     if (!state) return
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of agents) {
       if (agent.isPlayer) continue
       const status = agentStatuses[agent.agentName] ?? 'offline'
       state.setAgentStatus(agent.id, status)
@@ -165,7 +161,7 @@ export default function CanvasOffice({
   useEffect(() => {
     const state = stateRef.current
     if (!state || !agentSessionInfos) return
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of agents) {
       const info = agentSessionInfos[agent.agentName]
       if (info) {
         state.setAgentSessionInfo(agent.id, info)
@@ -177,7 +173,7 @@ export default function CanvasOffice({
   useEffect(() => {
     const state = stateRef.current
     if (!state || !agentBusyMap) return
-    for (const agent of OFFICE_AGENTS) {
+    for (const agent of agents) {
       state.setAgentBusy(agent.id, agentBusyMap[agent.agentName] ?? false)
     }
   }, [agentBusyMap])
@@ -229,7 +225,7 @@ export default function CanvasOffice({
     const state = stateRef.current
     if (!state) return
     if (selectedAgentName) {
-      const agent = OFFICE_AGENTS.find((a) => a.agentName === selectedAgentName)
+      const agent = agents.find((a) => a.agentName === selectedAgentName)
       state.selectedAgentId = agent ? agent.id : null
     } else {
       state.selectedAgentId = null
@@ -303,7 +299,7 @@ export default function CanvasOffice({
       window.removeEventListener('blur', onBlur)
       document.removeEventListener('visibilitychange', onBlur)
     }
-  }, [])
+  }, [CEO_ID])
 
   // Escape key handler for deselection (on window, not canvas)
   useEffect(() => {
@@ -585,7 +581,7 @@ export default function CanvasOffice({
       cancelAnimationFrame(rafRef.current)
       clearInterval(bgTimer)
     }
-  }, [])
+  }, [agents])
 
   // Initial scroll-to-CEO on mount so the player character is visible
   useEffect(() => {

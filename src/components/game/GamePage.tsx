@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardStore } from '@/stores/dashboard-store';
-import { OFFICE_AGENTS, type SelectedItem, type InteractionType } from './types';
+import { type SelectedItem, type InteractionType } from './types';
 import type { AgentStatus, SessionInfo } from './pixel-types';
 import GameHeader, { type HudPanel } from './GameHeader';
 import CanvasOffice, { type ClickedItem } from './CanvasOffice';
@@ -9,12 +9,8 @@ import AgentTicker from './AgentTicker';
 import type { TileType } from './types';
 import type { Session, DirectiveState } from '@/stores/types';
 import { getZoneAt } from './engine/roomZones';
-
-// ---------------------------------------------------------------------------
-// Agent name set for O(1) lookup
-// ---------------------------------------------------------------------------
-
-const KNOWN_AGENTS = new Set(OFFICE_AGENTS.map((a) => a.agentName));
+import { useOfficeAgents } from './useOfficeAgents';
+import { useAgentRegistryStore } from '@/stores/agent-registry-store';
 
 /** Capitalize first letter — agent names in project.json are lowercase ("riley") */
 function capitalize(s: string): string {
@@ -152,6 +148,13 @@ function ControlsHint() {
 // ---------------------------------------------------------------------------
 
 export default function GamePage() {
+  // Fetch runtime agent registry on mount (populates useOfficeAgents)
+  const fetchRegistry = useAgentRegistryStore((s) => s.fetchRegistry);
+  useEffect(() => { fetchRegistry(); }, [fetchRegistry]);
+
+  const OFFICE_AGENTS = useOfficeAgents();
+  const KNOWN_AGENTS = useMemo(() => new Set(OFFICE_AGENTS.map((a) => a.agentName)), [OFFICE_AGENTS]);
+
   const sessions = useDashboardStore((s) => s.sessions);
   const sessionActivities = useDashboardStore((s) => s.sessionActivities);
   const [selected, setSelected] = useState<SelectedItem | null>(null);
@@ -577,6 +580,7 @@ export default function GamePage() {
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-h-0 overflow-auto bg-stone-200 dark:bg-stone-950 relative">
           <CanvasOffice
+            agents={OFFICE_AGENTS}
             onAgentClick={handleAgentClick}
             onItemClick={handleItemClick}
             agentStatuses={agentStatuses}

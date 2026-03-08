@@ -154,6 +154,15 @@ export function loadConfig(): ConductorConfig {
     let serverPort = 4444;
     let notifications = { macOS: true, browser: true };
 
+    // process.env.PORT takes precedence over config.json and default
+    const envPort = process.env.PORT;
+    if (envPort !== undefined) {
+      const parsed_port = parseInt(envPort, 10);
+      if (!Number.isNaN(parsed_port)) {
+        serverPort = parsed_port;
+      }
+    }
+
     if (fs.existsSync(CONFIG_PATH)) {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
       const parsed = JSON.parse(raw) as Partial<ConductorConfig>;
@@ -162,7 +171,10 @@ export function loadConfig(): ConductorConfig {
         source: 'config' as const,
       }));
       claudeHome = parsed.claudeHome ?? claudeHome;
-      serverPort = parsed.server?.port ?? serverPort;
+      // Only use config port if env var was not set
+      if (envPort === undefined) {
+        serverPort = parsed.server?.port ?? serverPort;
+      }
       notifications = {
         macOS: parsed.notifications?.macOS ?? notifications.macOS,
         browser: parsed.notifications?.browser ?? notifications.browser,

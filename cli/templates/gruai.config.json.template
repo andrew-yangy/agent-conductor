@@ -1,5 +1,7 @@
 {
   "name": "{{PROJECT_NAME}}",
+  "preset": "{{PRESET}}",
+  "platform": "{{PLATFORM}}",
   "version": "1.0.0",
   "agents": {{AGENTS_JSON}},
   "skills": ["directive", "scout", "healthcheck", "report"],

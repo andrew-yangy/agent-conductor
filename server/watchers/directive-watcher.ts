@@ -149,7 +149,7 @@ export class DirectiveWatcher {
 
   constructor(aggregator: Aggregator, _claudeHome: string) {
     this.aggregator = aggregator;
-    this.directivesDir = path.join(process.cwd(), '.context', 'directives');
+    this.directivesDir = resolveDirectivesDir();
   }
 
   start(): void {

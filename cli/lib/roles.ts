@@ -2,7 +2,22 @@
  * Role definitions and name generation — zero dependencies.
  */
 
-import type { RoleDefinition, AgentEntry, PresetName } from './types.js';
+import type { RoleDefinition, AgentEntry, AgentGameConfig, PresetName } from './types.js';
+
+/** Game seat assignments by role ID — maps each role to its office desk position */
+const GAME_CONFIGS: Record<string, AgentGameConfig> = {
+  cto:      { palette: 1,  seatId: 'seat-3',  position: { row: 14, col: 5  }, color: 'purple' },
+  coo:      { palette: 2,  seatId: 'seat-12', position: { row: 20, col: 8  }, color: 'green' },
+  cpo:      { palette: 3,  seatId: 'seat-4',  position: { row: 14, col: 8  }, color: 'orange' },
+  cmo:      { palette: 4,  seatId: 'seat-5',  position: { row: 14, col: 11 }, color: 'pink' },
+  frontend: { palette: 6,  seatId: 'seat-6',  position: { row: 14, col: 14 }, color: 'pink' },
+  backend:  { palette: 7,  seatId: 'seat-7',  position: { row: 17, col: 5  }, color: 'teal' },
+  fullstack:{ palette: 11, seatId: 'seat-11', position: { row: 20, col: 5  }, color: 'indigo' },
+  data:     { palette: 8,  seatId: 'seat-8',  position: { row: 17, col: 8  }, color: 'cyan' },
+  qa:       { palette: 10, seatId: 'seat-10', position: { row: 17, col: 14 }, color: 'lime' },
+  design:   { palette: 12, seatId: 'seat-13', position: { row: 20, col: 11 }, color: 'rose' },
+  content:  { palette: 9,  seatId: 'seat-9',  position: { row: 17, col: 11 }, color: 'orange' },
+};
 
 export const ROLE_DEFINITIONS: RoleDefinition[] = [
   {
@@ -171,6 +186,7 @@ export function generateAgents(roleIds: string[]): AgentEntry[] {
       borderColor: roleDef.borderColor,
       dotColor: roleDef.dotColor,
       isCsuite: roleDef.isCsuite,
+      game: GAME_CONFIGS[roleDef.id] ?? null,
     });
   }
 

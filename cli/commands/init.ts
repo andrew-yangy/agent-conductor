@@ -261,7 +261,7 @@ export async function runInit(flags: Record<string, string | boolean>): Promise<
       console.log(`\n  ${c.bold('Configuration:')}`);
       console.log(`    Project:  ${c.cyan(config.projectName)}`);
       console.log(`    Path:     ${c.dim(config.projectPath)}`);
-      console.log(`    Preset:   ${config.preset} (${config.agents.length} agents)`);
+      console.log(`    Preset:   ${config.preset} (${config.agents.length} agents + CEO)`);
       console.log(`    Platform: ${config.platform}`);
 
       const confirm = await ask(rl, `\n  ${c.bold('Proceed?')} ${c.dim('(Y/n)')}: `);
