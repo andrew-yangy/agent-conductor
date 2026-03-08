@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>gruai — Your AI dev team, visualized</title>
+  <meta name="description" content="Watch autonomous AI agents work in a pixel-art office. gruai turns Claude Code sessions into a living simulation.">
+  <meta property="og:title" content="gruai — Your AI dev team, visualized">
+  <meta property="og:description" content="Watch autonomous AI agents work in a pixel-art office. gruai turns Claude Code sessions into a living simulation.">
+  <meta property="og:image" content="assets/demo.gif">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="gruai — Your AI dev team, visualized">
+  <meta name="twitter:description" content="Watch autonomous AI agents work in a pixel-art office. gruai turns Claude Code sessions into a living simulation.">
+  <meta name="twitter:image" content="assets/demo.gif">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+    :root{
+      --bg:#0a0a0f;
+      --bg-card:#12121f;
+      --bg-card-hover:#181830;
+      --border:#1e1e3a;
+      --border-accent:#10b98133;
+      --text:#d4d4d8;
+      --text-dim:#71717a;
+      --text-bright:#f4f4f5;
+      --accent:#10b981;
+      --accent-dim:#059669;
+      --accent-glow:#10b98122;
+      --code-bg:#0d0d18;
+      --maxw:800px;
+    }
+
+    html{
+      scroll-behavior:smooth;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    body{
+      background:var(--bg);
+      color:var(--text);
+      font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;
+      font-size:15px;
+      line-height:1.7;
+      min-height:100vh;
+    }
+
+    /* Subtle scanline overlay on body */
+    body::after{
+      content:'';
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      z-index:9999;
+    }
+
+    /* ---- LAYOUT ---- */
+    .wrap{
+      max-width:var(--maxw);
+      margin:0 auto;
+      padding:0 24px;
+    }
+
+    section{
+      padding:80px 0;
+    }
+
+    @media(max-width:600px){
+      section{padding:48px 0}
+    }
+
+    /* ---- NAV ---- */
+    nav{
+      position:sticky;
+      top:0;
+      z-index:100;
+      background:var(--bg);
+      border-bottom:1px solid var(--border);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+    nav .wrap{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      height:56px;
+    }
+    .nav-logo{
+      font-size:18px;
+      font-weight:700;
+      color:var(--accent);
+      letter-spacing:-0.5px;
+      text-decoration:none;
+    }
+    .nav-logo span{color:var(--text-dim);font-weight:400}
+    .nav-links{display:flex;gap:24px;align-items:center}
+    .nav-links a{
+      color:var(--text-dim);
+      text-decoration:none;
+      font-size:13px;
+      transition:color .2s;
+    }
+    .nav-links a:hover,.nav-links a:focus{color:var(--text-bright);outline:none}
+    .nav-gh{
+      display:inline-flex;align-items:center;gap:6px;
+      border:1px solid var(--border);
+      border-radius:6px;
+      padding:6px 12px;
+      font-size:13px;
+      color:var(--text) !important;
+      transition:border-color .2s,background .2s;
+    }
+    .nav-gh:hover,.nav-gh:focus{border-color:var(--accent);background:var(--accent-glow)}
+    .nav-gh svg{width:16px;height:16px;fill:currentColor}
+
+    @media(max-width:500px){
+      .nav-links a:not(.nav-gh){display:none}
+    }
+
+    /* ---- HERO ---- */
+    .hero{
+      padding-top:100px;
+      padding-bottom:60px;
+      text-align:center;
+    }
+    .hero-badge{
+      display:inline-block;
+      font-size:12px;
+      color:var(--accent);
+      border:1px solid var(--border-accent);
+      border-radius:999px;
+      padding:4px 14px;
+      margin-bottom:24px;
+      letter-spacing:0.5px;
+      background:var(--accent-glow);
+    }
+    .hero h1{
+      font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,Courier,monospace;
+      font-size:clamp(28px,5vw,48px);
+      font-weight:700;
+      line-height:1.15;
+      color:var(--text-bright);
+      margin-bottom:20px;
+      letter-spacing:-1px;
+    }
+    .hero h1 em{
+      font-style:normal;
+      color:var(--accent);
+    }
+    .hero-sub{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+      font-size:clamp(15px,2.5vw,18px);
+      color:var(--text-dim);
+      max-width:560px;
+      margin:0 auto 40px;
+      line-height:1.6;
+    }
+    .hero-actions{
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-bottom:56px;
+    }
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:12px 24px;
+      border-radius:8px;
+      font-size:14px;
+      font-weight:600;
+      font-family:inherit;
+      text-decoration:none;
+      cursor:pointer;
+      border:none;
+      transition:transform .15s,box-shadow .2s,background .2s;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn-primary{
+      background:var(--accent);
+      color:#021a0e;
+      box-shadow:0 0 24px var(--accent-glow);
+    }
+    .btn-primary:hover,.btn-primary:focus{
+      background:#34d399;
+      box-shadow:0 0 32px #10b98144;
+      outline:none;
+    }
+    .btn-secondary{
+      background:transparent;
+      color:var(--text);
+      border:1px solid var(--border);
+    }
+    .btn-secondary:hover,.btn-secondary:focus{
+      border-color:var(--accent);
+      background:var(--accent-glow);
+      outline:none;
+    }
+    .btn svg{width:16px;height:16px;fill:currentColor}
+
+    /* Demo GIF container */
+    .demo-frame{
+      position:relative;
+      border-radius:12px;
+      border:1px solid var(--border);
+      overflow:hidden;
+      background:var(--bg-card);
+      box-shadow:
+        0 0 0 1px var(--border),
+        0 24px 80px -12px rgba(0,0,0,0.6),
+        0 0 60px -20px var(--accent-glow);
+    }
+    /* Fake window chrome */
+    .demo-chrome{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 16px;
+      background:#0e0e1a;
+      border-bottom:1px solid var(--border);
+    }
+    .demo-dot{
+      width:10px;height:10px;border-radius:50%;
+    }
+    .demo-dot:nth-child(1){background:#ff5f57}
+    .demo-dot:nth-child(2){background:#febc2e}
+    .demo-dot:nth-child(3){background:#28c840}
+    .demo-chrome-title{
+      flex:1;text-align:center;
+      font-size:12px;color:var(--text-dim);
+      margin-right:44px;
+    }
+    .demo-frame img{
+      display:block;
+      width:100%;
+      height:auto;
+      image-rendering:auto;
+    }
+
+    /* ---- FEATURES ---- */
+    .features-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:16px;
+    }
+    @media(max-width:600px){
+      .features-grid{grid-template-columns:1fr}
+    }
+    .feature-card{
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:28px 24px;
+      transition:border-color .25s,background .25s,transform .2s;
+    }
+    .feature-card:hover{
+      border-color:#10b98144;
+      background:var(--bg-card-hover);
+      transform:translateY(-2px);
+    }
+    .feature-icon{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:40px;height:40px;
+      border-radius:8px;
+      margin-bottom:16px;
+      font-size:20px;
+      background:var(--accent-glow);
+      border:1px solid var(--border-accent);
+    }
+    .feature-card h3{
+      font-size:15px;
+      font-weight:700;
+      color:var(--text-bright);
+      margin-bottom:8px;
+    }
+    .feature-card p{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+      font-size:14px;
+      color:var(--text-dim);
+      line-height:1.6;
+    }
+
+    .section-label{
+      font-size:12px;
+      color:var(--accent);
+      letter-spacing:1.5px;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+    .section-title{
+      font-size:clamp(22px,4vw,32px);
+      font-weight:700;
+      color:var(--text-bright);
+      margin-bottom:12px;
+      letter-spacing:-0.5px;
+    }
+    .section-desc{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+      color:var(--text-dim);
+      font-size:15px;
+      margin-bottom:40px;
+      max-width:560px;
+    }
+
+    /* ---- QUICKSTART ---- */
+    .quickstart-block{
+      background:var(--code-bg);
+      border:1px solid var(--border);
+      border-radius:10px;
+      overflow:hidden;
+    }
+    .quickstart-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 16px;
+      background:#0e0e1a;
+      border-bottom:1px solid var(--border);
+    }
+    .quickstart-header span{
+      font-size:12px;
+      color:var(--text-dim);
+    }
+    .quickstart-copy{
+      background:none;border:1px solid var(--border);
+      color:var(--text-dim);font-size:12px;
+      padding:4px 10px;border-radius:4px;
+      cursor:pointer;font-family:inherit;
+      transition:color .2s,border-color .2s;
+    }
+    .quickstart-copy:hover,.quickstart-copy:focus{color:var(--accent);border-color:var(--accent);outline:none}
+    .quickstart-pre{
+      padding:20px 24px;
+      overflow-x:auto;
+      font-size:14px;
+      line-height:1.8;
+    }
+    .quickstart-pre .prompt{color:var(--accent);user-select:none}
+    .quickstart-pre .cmd{color:var(--text-bright)}
+    .quickstart-pre .comment{color:var(--text-dim)}
+
+    /* ---- COMPARISON ---- */
+    .compare-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:14px;
+    }
+    .compare-table th,
+    .compare-table td{
+      text-align:left;
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+    }
+    .compare-table th{
+      color:var(--text-dim);
+      font-weight:400;
+      font-size:12px;
+      letter-spacing:0.5px;
+      text-transform:uppercase;
+    }
+    .compare-table td:first-child{
+      color:var(--text-bright);
+      font-weight:600;
+    }
+    .compare-table tr.highlight td{
+      color:var(--accent);
+      background:var(--accent-glow);
+    }
+    .compare-table tr.highlight td:first-child{
+      color:var(--accent);
+      font-weight:700;
+    }
+    .compare-tag{
+      display:inline-block;
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:4px;
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      color:var(--text-dim);
+      margin-left:8px;
+      vertical-align:middle;
+    }
+    .compare-tag--green{
+      background:var(--accent-glow);
+      border-color:var(--border-accent);
+      color:var(--accent);
+    }
+    @media(max-width:600px){
+      .compare-table{font-size:12px}
+      .compare-table th,.compare-table td{padding:10px 8px}
+    }
+
+    /* Responsive table wrapper */
+    .table-wrap{
+      overflow-x:auto;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--bg-card);
+    }
+    .table-wrap .compare-table th,.table-wrap .compare-table td{
+      white-space:nowrap;
+    }
+    @media(min-width:601px){
+      .table-wrap .compare-table th,.table-wrap .compare-table td{
+        white-space:normal;
+      }
+    }
+
+    /* ---- CTA ---- */
+    .cta{
+      text-align:center;
+      padding:80px 0 60px;
+    }
+    .cta h2{
+      font-size:clamp(22px,4vw,32px);
+      font-weight:700;
+      color:var(--text-bright);
+      margin-bottom:12px;
+      letter-spacing:-0.5px;
+    }
+    .cta p{
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+      color:var(--text-dim);
+      font-size:15px;
+      margin-bottom:32px;
+    }
+    .cta-install{
+      display:inline-block;
+      background:var(--code-bg);
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:14px 28px;
+      font-size:15px;
+      color:var(--text-bright);
+      margin-top:20px;
+    }
+    .cta-install .prompt{color:var(--accent)}
+
+    /* ---- FOOTER ---- */
+    footer{
+      border-top:1px solid var(--border);
+      padding:32px 0;
+    }
+    footer .wrap{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      font-size:13px;
+      color:var(--text-dim);
+    }
+    footer a{
+      color:var(--text-dim);
+      text-decoration:none;
+      transition:color .2s;
+    }
+    footer a:hover,footer a:focus{color:var(--accent);outline:none}
+    .footer-links{display:flex;gap:20px}
+    @media(max-width:500px){
+      footer .wrap{flex-direction:column;gap:12px;text-align:center}
+    }
+
+    /* ---- FOCUS RING ---- */
+    :focus-visible{
+      outline:2px solid var(--accent);
+      outline-offset:2px;
+    }
+
+    /* ---- SELECTION ---- */
+    ::selection{
+      background:var(--accent);
+      color:#021a0e;
+    }
+
+    /* Skip link for accessibility */
+    .skip-link{
+      position:absolute;
+      top:-100px;
+      left:16px;
+      background:var(--accent);
+      color:#021a0e;
+      padding:8px 16px;
+      border-radius:4px;
+      font-size:14px;
+      font-weight:600;
+      z-index:9999;
+      text-decoration:none;
+    }
+    .skip-link:focus{top:8px}
+  </style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<!-- NAV -->
+<nav aria-label="Main navigation">
+  <div class="wrap">
+    <a href="#" class="nav-logo" aria-label="gruai home">gruai<span>.dev</span></a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#compare">Compare</a>
+      <a href="https://github.com/andrew-yangy/gruai" class="nav-gh" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Star
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<main id="main">
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-badge" aria-label="Open source badge">open source &middot; MIT licensed</div>
+    <h1>Your AI dev team, <em>visualized.</em></h1>
+    <p class="hero-sub">
+      gruai turns Claude Code sessions into a living pixel-art office. Named AI agents with
+      distinct roles work autonomously while you watch them build, review, and ship.
+    </p>
+    <div class="hero-actions">
+      <a href="#quickstart" class="btn btn-primary">
+        Get Started
+      </a>
+      <a href="https://github.com/andrew-yangy/gruai" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+
+    <div class="demo-frame">
+      <div class="demo-chrome" aria-hidden="true">
+        <div class="demo-dot"></div>
+        <div class="demo-dot"></div>
+        <div class="demo-dot"></div>
+        <span class="demo-chrome-title">gruai &mdash; HQ Office</span>
+      </div>
+      <img
+        src="assets/demo.gif"
+        alt="Animated demo of gruai showing pixel-art AI agents working in a virtual office with real-time session tracking"
+        loading="lazy"
+        width="1273"
+        height="965"
+      >
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <p class="section-label">Features</p>
+    <h2 class="section-title">Everything you need to run an AI team</h2>
+    <p class="section-desc">
+      A complete framework for orchestrating autonomous AI agents with
+      real-time visibility into what they're doing and why.
+    </p>
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon" aria-hidden="true">&#x1F3AE;</div>
+        <h3>Pixel-Art Office Simulation</h3>
+        <p>Watch your AI agents move, type, and collaborate in a retro pixel-art office. Each agent has a desk, animations, and real-time status indicators.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" aria-hidden="true">&#x1F916;</div>
+        <h3>Autonomous Agent Teams</h3>
+        <p>Named C-suite agents -- COO, CTO, CPO, CMO -- each with distinct personalities, domain expertise, and decision-making authority.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" aria-hidden="true">&#x1F4CB;</div>
+        <h3>Directive Pipeline</h3>
+        <p>Structured triage, planning, building, and review. Weight-adaptive: lightweight tasks run fast, heavyweight gets full challenge and approval cycles.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" aria-hidden="true">&#x1F4CA;</div>
+        <h3>Live Dashboard</h3>
+        <p>Real-time session tracking, approval workflows, cost insights, and WebSocket-powered state updates. Know exactly what your agents are doing.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- QUICKSTART -->
+<section id="quickstart">
+  <div class="wrap">
+    <p class="section-label">Quickstart</p>
+    <h2 class="section-title">Up and running in 60 seconds</h2>
+    <p class="section-desc">
+      Clone the repo, install dependencies, and launch the dashboard.
+      No configuration required.
+    </p>
+    <div class="quickstart-block">
+      <div class="quickstart-header">
+        <span>terminal</span>
+      </div>
+      <pre class="quickstart-pre" role="code" aria-label="Installation commands"><span class="comment"># Clone and install</span>
+<span class="prompt">$ </span><span class="cmd">git clone https://github.com/andrew-yangy/gruai.git</span>
+<span class="prompt">$ </span><span class="cmd">cd gruai && npm install</span>
+
+<span class="comment"># Launch the dashboard + pixel-art office</span>
+<span class="prompt">$ </span><span class="cmd">npm run dev</span>
+
+<span class="comment"># Open http://localhost:5173</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="compare">
+  <div class="wrap">
+    <p class="section-label">How it compares</p>
+    <h2 class="section-title">Not another agent framework</h2>
+    <p class="section-desc">
+      gruai is an organizational harness, not a chat wrapper.
+      It structures agents into an autonomous company with real accountability.
+    </p>
+    <div class="table-wrap">
+      <table class="compare-table" aria-label="Comparison of gruai with alternatives">
+        <thead>
+          <tr>
+            <th scope="col">Tool</th>
+            <th scope="col">Cost</th>
+            <th scope="col">Approach</th>
+            <th scope="col">Visibility</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="highlight">
+            <td>gruai <span class="compare-tag compare-tag--green">free</span></td>
+            <td>$0/mo</td>
+            <td>Structured pipeline with named roles</td>
+            <td>Pixel-art office + live dashboard</td>
+          </tr>
+          <tr>
+            <td>Devin</td>
+            <td>$500/mo</td>
+            <td>Headless single agent</td>
+            <td>Chat log only</td>
+          </tr>
+          <tr>
+            <td>CrewAI</td>
+            <td>Free</td>
+            <td>YAML-configured agent chains</td>
+            <td>Terminal output</td>
+          </tr>
+          <tr>
+            <td>AutoGen</td>
+            <td>Free</td>
+            <td>Research-oriented multi-agent</td>
+            <td>Notebook cells</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="wrap">
+    <h2>Ready to meet your AI team?</h2>
+    <p>
+      Star the repo, clone it, and start building.
+      Your pixel-art office is waiting.
+    </p>
+    <div class="hero-actions">
+      <a href="https://github.com/andrew-yangy/gruai" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 16 16" aria-hidden="true" style="width:16px;height:16px;fill:currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
+        Star on GitHub
+      </a>
+      <a href="#quickstart" class="btn btn-secondary">
+        View Quickstart
+      </a>
+    </div>
+    <div class="cta-install">
+      <span class="prompt">$ </span>npm install -g gru-ai
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <span>MIT License &copy; 2026 gruai</span>
+    <div class="footer-links">
+      <a href="https://github.com/andrew-yangy/gruai" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://www.npmjs.com/package/gru-ai" target="_blank" rel="noopener noreferrer">npm</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

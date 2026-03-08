@@ -1,7 +1,7 @@
 {
   "id": "landing-page",
   "title": "Static HTML landing page on GitHub Pages",
-  "status": "pending",
+  "status": "completed",
   "priority": "P2",
   "agent": ["riley"],
   "reviewers": ["priya", "marcus"],
@@ -13,17 +13,17 @@
     "out": "No frameworks, no build step, no CMS"
   },
   "dod": [
-    { "criterion": "docs/index.html exists — valid HTML5, no framework dependencies", "met": false },
-    { "criterion": "Hero section with demo.gif, value prop, feature cards, quickstart", "met": false },
-    { "criterion": "Mobile responsive on 375px, dark theme, under 50KB excluding GIF", "met": false },
-    { "criterion": "GitHub Pages compatible — works via file:// and HTTP", "met": false }
+    { "criterion": "docs/index.html exists — valid HTML5, no framework dependencies", "met": true },
+    { "criterion": "Hero section with demo.gif, value prop, feature cards, quickstart", "met": true },
+    { "criterion": "Mobile responsive on 375px, dark theme, under 50KB excluding GIF", "met": true },
+    { "criterion": "GitHub Pages compatible — works via file:// and HTTP", "met": true }
   ],
   "browser_test": true,
   "tasks": [
     {
       "id": "landing-page-structure",
       "title": "Build landing page HTML structure and hero section",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "complexity": "moderate",
       "phases": ["build", "review"],
@@ -31,17 +31,17 @@
       "user_scenario": "Developer visits GitHub Pages site and immediately sees compelling hero with pixel-art office GIF and understands what gruai does within 5 seconds.",
       "scope": "Create docs/index.html with semantic HTML5. Dark theme CSS. Hero with demo.gif. Value prop headline. 4 feature cards. Quickstart code block. GitHub star button. Mobile responsive. Footer.",
       "dod": [
-        { "criterion": "docs/index.html exists and is valid HTML5 with no framework dependencies", "met": false },
-        { "criterion": "Hero section displays docs/assets/demo.gif with value prop headline", "met": false },
-        { "criterion": "Page includes: 4+ feature highlights, quickstart code block, GitHub link, npm install command", "met": false },
-        { "criterion": "Mobile responsive — readable on 375px viewport without horizontal scroll", "met": false },
-        { "criterion": "Total page weight under 50KB excluding demo.gif", "met": false }
+        { "criterion": "docs/index.html exists and is valid HTML5 with no framework dependencies", "met": true },
+        { "criterion": "Hero section displays docs/assets/demo.gif with value prop headline", "met": true },
+        { "criterion": "Page includes: 4+ feature highlights, quickstart code block, GitHub link, npm install command", "met": true },
+        { "criterion": "Mobile responsive — readable on 375px viewport without horizontal scroll", "met": true },
+        { "criterion": "Total page weight under 50KB excluding demo.gif", "met": true }
       ]
     },
     {
       "id": "landing-page-polish",
       "title": "Visual polish, performance optimization, and GitHub Pages compatibility",
-      "status": "pending",
+      "status": "completed",
       "priority": "P0",
       "complexity": "moderate",
       "phases": ["build", "review"],
@@ -49,14 +49,14 @@
       "user_scenario": "Landing page loads in under 1 second, looks polished with dark theme, and is properly served via GitHub Pages.",
       "scope": "Polish visuals: consistent dark color palette, typography hierarchy, smooth scroll. Lazy-load demo.gif. SEO meta tags. GitHub Pages compatibility. Verify local file:// access works.",
       "dod": [
-        { "criterion": "Page opens correctly via file:// protocol and via HTTP server", "met": false },
-        { "criterion": "Meta tags present: title, description, og:image, viewport", "met": false },
-        { "criterion": "demo.gif is lazy-loaded (loading='lazy' or Intersection Observer)", "met": false },
-        { "criterion": "Dark theme with consistent color palette — no default white backgrounds", "met": false },
-        { "criterion": "Page weight under 50KB excluding demo.gif", "met": false }
+        { "criterion": "Page opens correctly via file:// protocol and via HTTP server", "met": true },
+        { "criterion": "Meta tags present: title, description, og:image, viewport", "met": true },
+        { "criterion": "demo.gif is lazy-loaded (loading='lazy' or Intersection Observer)", "met": true },
+        { "criterion": "Dark theme with consistent color palette — no default white backgrounds", "met": true },
+        { "criterion": "Page weight under 50KB excluding demo.gif", "met": true }
       ]
     }
   ],
   "created": "2026-03-08T00:12:00Z",
-  "updated": "2026-03-08T00:12:00Z"
+  "updated": "2026-03-08T21:10:00Z"
 }
