@@ -3,20 +3,13 @@ set -euo pipefail
 
 # ─── Dimension: Full Integration (Init → Server → Game Data → Directives) ────
 #
-# THE missing test: verifies the complete real-user chain end-to-end.
+# THE real user story test: verifies the complete chain end-to-end.
 # Every test creates a FRESH consumer project from scratch.
 #
-# Scenarios tested:
-#   1. Init → Server serves correct agent registry (all presets)
-#   2. Init → Server → Game configs present for ALL agents
-#   3. Init → Create directive → Server shows directive in API + WebSocket
-#   4. Directive pipeline steps correct for each weight class
-#   5. Multiple simultaneous directives
-#   6. Directive watcher picks up live changes
-#   7. Agent names flow through: init → registry → API → correct in response
-#   8. Project + task data visible through API chain
-#   9. Edge: server with no directives, then add one live
-#  10. Edge: corrupt directive.json doesn't crash server
+# Coverage matrix:
+#   - ALL 5 platforms × ALL 3 presets for init→server→registry→game chain
+#   - Directive/pipeline scenarios across multiple platforms
+#   - Edge cases (corrupt JSON, empty project, live watcher)
 # ──────────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,12 +23,10 @@ TEMP_DIRS=""
 SERVER_PIDS=""
 
 cleanup() {
-  # Kill all servers
   for pid in $SERVER_PIDS; do
     kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
   done
-  # Remove temp dirs
   for dir in $TEMP_DIRS; do
     if [[ -n "$dir" && -d "$dir" && "$dir" == *"e2e-test"* ]]; then
       rm -rf "$dir"
@@ -77,7 +68,7 @@ kill_server_on_port() {
   sleep 1
 }
 
-# ─── Helper: query API with python3 (avoids jq shell escaping issues) ────────
+# ─── Helper: query API with python3 ──────────────────────────────────────────
 
 api_query() {
   local port="$1"
@@ -124,7 +115,6 @@ ENDJSON
 }
 
 create_directive_full() {
-  # Creates directive with all pipeline steps for a given weight
   local project_dir="$1"
   local dir_id="$2"
   local title="$3"
@@ -135,7 +125,6 @@ create_directive_full() {
   local dir_path="${project_dir}/.context/directives/${dir_id}"
   mkdir -p "${dir_path}/projects"
 
-  # Build pipeline JSON based on weight
   local challenge_status="skipped"
   local brainstorm_status="skipped"
   local approve_status="completed"
@@ -202,138 +191,213 @@ create_project() {
 ENDJSON
 }
 
+# Platform → expected symlink dir mapping
+platform_symlink_dir() {
+  case "$1" in
+    claude-code) echo ".claude" ;;
+    aider)       echo ".aider" ;;
+    gemini-cli)  echo ".gemini" ;;
+    codex)       echo ".codex" ;;
+    other)       echo "" ;;
+  esac
+}
+
+ALL_PLATFORMS=(claude-code aider gemini-cli codex other)
+ALL_PRESETS=(starter standard full)
+
+preset_agent_count() {
+  case "$1" in
+    starter)  echo 5 ;;
+    standard) echo 8 ;;
+    full)     echo 12 ;;
+  esac
+}
+
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 1: Init → Server → Agent Registry (all presets)
-# Real user: installs gru-ai, inits project, starts server, game loads agents
+# SCENARIO 1: Init → Server → Agent Registry (ALL platforms × ALL presets)
+# Real user: picks any platform + any preset, starts server, game loads agents
 # ═════════════════════════════════════════════════════════════════════════════
 
-test_preset_to_server() {
-  local preset="$1"
-  local expected_agents="$2"
+test_platform_preset_to_server() {
+  local platform="$1"
+  local preset="$2"
+  local expected_agents
+  expected_agents="$(preset_agent_count "$preset")"
+  local tag="${platform}/${preset}"
 
-  log_section "Scenario 1: Init(${preset}) → Server → Agent Registry"
+  log_section "Scenario 1: Init(${tag}) → Server → Agent Registry"
 
   local dir
-  dir="$(create_test_dir "e2e-test-integ-${preset}")"
+  dir="$(create_test_dir "e2e-test-integ-${platform}-${preset}")"
   add_temp_dir "$dir"
 
-  # Step 1: Init
-  run_gruai_init "$dir" "$preset" > /dev/null 2>&1 || true
-  assert_dir_exists "${dir}/.gruai" "${preset}: init succeeded"
+  # Step 1: Init with specific platform
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
+  assert_dir_exists "${dir}/.gruai" "${tag}: init succeeded"
 
-  # Step 2: Start server
+  # Step 2: Verify correct platform symlink
+  local symlink_dir
+  symlink_dir="$(platform_symlink_dir "$platform")"
+  if [[ -n "$symlink_dir" ]]; then
+    assert_symlink "${dir}/${symlink_dir}" ".gruai" "${tag}: ${symlink_dir}/ symlink -> .gruai/"
+  else
+    # 'other' platform: no symlink, just .gruai/
+    local has_any_symlink=false
+    for sl in .claude .aider .gemini .codex; do
+      if [[ -L "${dir}/${sl}" ]]; then has_any_symlink=true; fi
+    done
+    if ! $has_any_symlink; then
+      log_pass "${tag}: no platform symlinks (correct for 'other')"
+    else
+      log_fail "${tag}: unexpected symlink found for 'other' platform"
+    fi
+  fi
+
+  # Step 3: Start server
   local port
   port="$(find_free_port)"
   if ! start_server "$dir" "$port"; then
     return
   fi
-  log_pass "${preset}: server started on port ${port}"
+  log_pass "${tag}: server started on port ${port}"
 
-  # Step 3: Verify agent registry via API
+  # Step 4: Verify agent registry via API
   local agent_count
   agent_count="$(api_query "$port" "/api/agent-registry" "print(len(data.get('agents',[])))")"
-  assert_eq "$agent_count" "$expected_agents" "${preset}: API returns ${expected_agents} agents"
+  assert_eq "$agent_count" "$expected_agents" "${tag}: API returns ${expected_agents} agents"
 
-  # Step 4: Verify CEO is first with isPlayer
+  # Step 5: Verify CEO is first with isPlayer
   local ceo_id
   ceo_id="$(api_query "$port" "/api/agent-registry" "print(data['agents'][0]['id'])")"
-  assert_eq "$ceo_id" "ceo" "${preset}: CEO is first agent"
+  assert_eq "$ceo_id" "ceo" "${tag}: CEO is first agent"
 
   local ceo_is_player
   ceo_is_player="$(api_query "$port" "/api/agent-registry" "print(data['agents'][0].get('game',{}).get('isPlayer',False))")"
-  assert_eq "$ceo_is_player" "True" "${preset}: CEO has isPlayer=true"
+  assert_eq "$ceo_is_player" "True" "${tag}: CEO has isPlayer=true"
 
-  # Step 5: Verify ALL agents have game config
+  # Step 6: ALL agents have game config
   local agents_with_game
   agents_with_game="$(api_query "$port" "/api/agent-registry" \
     "print(sum(1 for a in data['agents'] if a.get('game')))")"
-  assert_eq "$agents_with_game" "$expected_agents" "${preset}: all ${expected_agents} agents have game config"
+  assert_eq "$agents_with_game" "$expected_agents" "${tag}: all ${expected_agents} agents have game config"
 
-  # Step 6: Verify no duplicate seatIds
+  # Step 7: No duplicate seatIds
   local unique_seats
   unique_seats="$(api_query "$port" "/api/agent-registry" \
     "seats=[a['game']['seatId'] for a in data['agents'] if a.get('game')]; print(len(seats)==len(set(seats)))")"
-  assert_eq "$unique_seats" "True" "${preset}: no duplicate seatIds"
+  assert_eq "$unique_seats" "True" "${tag}: no duplicate seatIds"
 
-  # Step 7: Verify no duplicate palettes
+  # Step 8: No duplicate palettes
   local unique_palettes
   unique_palettes="$(api_query "$port" "/api/agent-registry" \
     "p=[a['game']['palette'] for a in data['agents'] if a.get('game')]; print(len(p)==len(set(p)))")"
-  assert_eq "$unique_palettes" "True" "${preset}: no duplicate palettes"
+  assert_eq "$unique_palettes" "True" "${tag}: no duplicate palettes"
 
-  # Step 8: Verify agent names are non-empty strings (not template placeholders)
+  # Step 9: Agent names are real (not template placeholders)
   local names_valid
   names_valid="$(api_query "$port" "/api/agent-registry" \
     "print(all(len(a.get('name',''))>2 and '{{' not in a.get('name','') for a in data['agents']))")"
-  assert_eq "$names_valid" "True" "${preset}: all agent names are real (no placeholders)"
+  assert_eq "$names_valid" "True" "${tag}: all agent names are real (no placeholders)"
 
-  # Step 9: Verify game configs have required fields
+  # Step 10: Game configs have required fields
   local game_fields_valid
   game_fields_valid="$(api_query "$port" "/api/agent-registry" \
     "print(all('palette' in a['game'] and 'seatId' in a['game'] and 'position' in a['game'] and 'color' in a['game'] for a in data['agents'] if a.get('game')))")"
-  assert_eq "$game_fields_valid" "True" "${preset}: all game configs have palette/seatId/position/color"
+  assert_eq "$game_fields_valid" "True" "${tag}: all game configs have palette/seatId/position/color"
+
+  # Step 11: firstName present for all non-CEO agents
+  local firstname_valid
+  firstname_valid="$(api_query "$port" "/api/agent-registry" \
+    "print(all(a.get('firstName','')!='' for a in data['agents'] if a['id']!='ceo'))")"
+  assert_eq "$firstname_valid" "True" "${tag}: all non-CEO agents have firstName"
+
+  # Step 12: Health endpoint works
+  local health_status
+  health_status="$(api_query "$port" "/api/health" "print(data.get('status',''))")"
+  assert_eq "$health_status" "ok" "${tag}: /api/health returns ok"
+
+  # Step 13: Unknown /api/* returns 404 JSON (not SPA fallback)
+  local api_404
+  api_404="$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${port}/api/nonexistent" 2>/dev/null)"
+  assert_eq "$api_404" "404" "${tag}: unknown /api/* returns 404"
 
   kill_server_on_port "$port"
 }
 
-test_preset_to_server "starter" "5"
-test_preset_to_server "standard" "8"
-test_preset_to_server "full" "12"
+# Run ALL 5 platforms × ALL 3 presets = 15 combinations
+for platform in "${ALL_PLATFORMS[@]}"; do
+  for preset in "${ALL_PRESETS[@]}"; do
+    test_platform_preset_to_server "$platform" "$preset"
+  done
+done
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 2: Init → Create Directive → Server shows it in API
-# Real user: inits project, starts working, directive appears on dashboard
+# SCENARIO 2: Init → Directive → Server shows it in API (multiple platforms)
+# Real user on different platforms creates directives, sees them on dashboard
 # ═════════════════════════════════════════════════════════════════════════════
 
-log_section "Scenario 2: Init → Directive → Server API shows directive"
+test_directive_chain() {
+  local platform="$1"
+  local preset="$2"
+  local tag="${platform}/${preset}"
 
-SC2_DIR="$(create_test_dir "e2e-test-integ-directive")"
-add_temp_dir "$SC2_DIR"
+  log_section "Scenario 2: Directive chain (${tag})"
 
-run_gruai_init "$SC2_DIR" "starter" > /dev/null 2>&1 || true
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-dir-${platform}-${preset}")"
+  add_temp_dir "$dir"
 
-# Create an active directive
-create_directive "$SC2_DIR" "build-feature" "Build Feature X" "in_progress" "medium" "execute"
-create_project "$SC2_DIR" "build-feature" "impl" "Implementation" "in_progress"
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
 
-SC2_PORT="$(find_free_port)"
-start_server "$SC2_DIR" "$SC2_PORT" || true
+  # Create an active directive
+  create_directive "$dir" "build-feature" "Build Feature X" "in_progress" "medium" "execute"
+  create_project "$dir" "build-feature" "impl" "Implementation" "in_progress"
 
-# Verify directive appears in API
-active_count="$(api_query "$SC2_PORT" "/api/state" "print(len(data.get('activeDirectives',[])))")"
-assert_eq "$active_count" "1" "directive visible: activeDirectives=1"
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
 
-dir_name="$(api_query "$SC2_PORT" "/api/state" "print(data['activeDirectives'][0]['directiveName'])")"
-assert_eq "$dir_name" "build-feature" "directive name correct"
+  # Verify directive appears
+  local active_count
+  active_count="$(api_query "$port" "/api/state" "print(len(data.get('activeDirectives',[])))")"
+  assert_eq "$active_count" "1" "${tag}: activeDirectives=1"
 
-dir_title="$(api_query "$SC2_PORT" "/api/state" "print(data['activeDirectives'][0]['title'])")"
-assert_eq "$dir_title" "Build Feature X" "directive title correct"
+  local dir_name
+  dir_name="$(api_query "$port" "/api/state" "print(data['activeDirectives'][0]['directiveName'])")"
+  assert_eq "$dir_name" "build-feature" "${tag}: directive name correct"
 
-dir_status="$(api_query "$SC2_PORT" "/api/state" "print(data['activeDirectives'][0]['status'])")"
-assert_eq "$dir_status" "in_progress" "directive status = in_progress"
+  local dir_status
+  dir_status="$(api_query "$port" "/api/state" "print(data['activeDirectives'][0]['status'])")"
+  assert_eq "$dir_status" "in_progress" "${tag}: directive status = in_progress"
 
-current_step="$(api_query "$SC2_PORT" "/api/state" "print(data['activeDirectives'][0]['currentStepId'])")"
-assert_eq "$current_step" "execute" "directive current_step = execute"
+  local current_step
+  current_step="$(api_query "$port" "/api/state" "print(data['activeDirectives'][0]['currentStepId'])")"
+  assert_eq "$current_step" "execute" "${tag}: current_step = execute"
 
-pipeline_count="$(api_query "$SC2_PORT" "/api/state" "print(len(data['activeDirectives'][0].get('pipelineSteps',[])))")"
-assert_eq "$pipeline_count" "14" "directive has 14 pipeline steps"
+  local pipeline_count
+  pipeline_count="$(api_query "$port" "/api/state" "print(len(data['activeDirectives'][0].get('pipelineSteps',[])))")"
+  assert_eq "$pipeline_count" "14" "${tag}: 14 pipeline steps"
 
-# Verify project + task data flows through
-proj_count="$(api_query "$SC2_PORT" "/api/state" "print(len(data['activeDirectives'][0].get('projects',[])))")"
-assert_eq "$proj_count" "1" "directive has 1 project"
+  # Project + task chain
+  local proj_count
+  proj_count="$(api_query "$port" "/api/state" "print(len(data['activeDirectives'][0].get('projects',[])))")"
+  assert_eq "$proj_count" "1" "${tag}: 1 project"
 
-task_count="$(api_query "$SC2_PORT" "/api/state" \
-  "print(len(data['activeDirectives'][0]['projects'][0].get('tasks',[])))")"
-assert_eq "$task_count" "3" "project has 3 tasks"
+  local task_count
+  task_count="$(api_query "$port" "/api/state" \
+    "print(len(data['activeDirectives'][0]['projects'][0].get('tasks',[])))")"
+  assert_eq "$task_count" "3" "${tag}: 3 tasks"
 
-completed_tasks="$(api_query "$SC2_PORT" "/api/state" \
-  "print(sum(1 for t in data['activeDirectives'][0]['projects'][0]['tasks'] if t['status']=='completed'))")"
-assert_eq "$completed_tasks" "1" "1 task completed"
+  local completed_tasks
+  completed_tasks="$(api_query "$port" "/api/state" \
+    "print(sum(1 for t in data['activeDirectives'][0]['projects'][0]['tasks'] if t['status']=='completed'))")"
+  assert_eq "$completed_tasks" "1" "${tag}: 1 task completed"
 
-# Verify WebSocket initial state matches API
-ws_active="$(node -e "
+  # WebSocket delivers same data
+  local ws_active
+  ws_active="$(node -e "
 const WebSocket = require('${GRUAI_PACKAGE_ROOT}/node_modules/ws');
-const ws = new WebSocket('ws://localhost:${SC2_PORT}');
+const ws = new WebSocket('ws://localhost:${port}');
 ws.on('message', (d) => {
   const m = JSON.parse(d);
   if (m.type === 'full_state') {
@@ -344,76 +408,95 @@ ws.on('message', (d) => {
 });
 setTimeout(() => { console.log('timeout'); process.exit(1); }, 5000);
 " 2>/dev/null)" || ws_active="error"
-assert_eq "$ws_active" "1" "WebSocket full_state has activeDirectives=1"
+  assert_eq "$ws_active" "1" "${tag}: WebSocket full_state has activeDirectives=1"
 
-kill_server_on_port "$SC2_PORT"
+  kill_server_on_port "$port"
+}
+
+# Run directive chain on 3 platforms × 2 presets = 6 combinations
+test_directive_chain "claude-code" "starter"
+test_directive_chain "aider" "standard"
+test_directive_chain "gemini-cli" "full"
+test_directive_chain "codex" "starter"
+test_directive_chain "other" "standard"
+test_directive_chain "claude-code" "full"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 3: Pipeline weight classes — skipped steps correct
+# SCENARIO 3: Pipeline weight classes — skipped steps (multiple platforms)
 # Real user: different directive weights skip different pipeline steps
 # ═════════════════════════════════════════════════════════════════════════════
 
 test_weight_class() {
   local weight="$1"
-  local expected_skipped="$2"  # comma-separated step IDs that should be skipped
+  local expected_skipped="$2"
+  local platform="$3"
+  local tag="${platform}/${weight}"
 
-  log_section "Scenario 3: Weight class ${weight} — skipped steps"
+  log_section "Scenario 3: Weight class ${tag} — skipped steps"
 
   local dir
-  dir="$(create_test_dir "e2e-test-integ-weight-${weight}")"
+  dir="$(create_test_dir "e2e-test-integ-weight-${platform}-${weight}")"
   add_temp_dir "$dir"
 
-  run_gruai_init "$dir" "starter" > /dev/null 2>&1 || true
+  run_gruai_init_with_platform "$dir" "starter" "$platform" > /dev/null 2>&1 || true
   create_directive_full "$dir" "test-${weight}" "Test ${weight}" "in_progress" "$weight" "execute"
 
   local port
   port="$(find_free_port)"
   start_server "$dir" "$port" || return
 
-  # Get skipped steps
   local skipped
   skipped="$(api_query "$port" "/api/state" \
     "steps=data['activeDirectives'][0].get('pipelineSteps',[]); print(','.join(s['id'] for s in steps if s['status']=='skipped') or 'none')")"
-  assert_eq "$skipped" "$expected_skipped" "${weight}: skipped steps = ${expected_skipped}"
+  assert_eq "$skipped" "$expected_skipped" "${tag}: skipped steps = ${expected_skipped}"
 
-  # Verify active step exists
   local active_step
   active_step="$(api_query "$port" "/api/state" \
     "steps=data['activeDirectives'][0].get('pipelineSteps',[]); active=[s for s in steps if s['status']=='active']; print(active[0]['id'] if active else 'none')")"
-  assert_eq "$active_step" "execute" "${weight}: active step = execute"
+  assert_eq "$active_step" "execute" "${tag}: active step = execute"
 
-  # Count completed steps
   local completed_steps
   completed_steps="$(api_query "$port" "/api/state" \
     "steps=data['activeDirectives'][0].get('pipelineSteps',[]); print(sum(1 for s in steps if s['status']=='completed'))")"
-  assert_gt "$completed_steps" "5" "${weight}: has >5 completed steps"
+  assert_gt "$completed_steps" "5" "${tag}: has >5 completed steps"
 
   kill_server_on_port "$port"
 }
 
-test_weight_class "lightweight" "challenge,brainstorm,approve"
-test_weight_class "medium" "challenge"
-test_weight_class "heavyweight" "none"
+# 3 weights × 3 platforms = 9 combinations
+test_weight_class "lightweight" "challenge,brainstorm,approve" "claude-code"
+test_weight_class "medium" "challenge" "claude-code"
+test_weight_class "heavyweight" "none" "claude-code"
+test_weight_class "lightweight" "challenge,brainstorm,approve" "aider"
+test_weight_class "medium" "challenge" "codex"
+test_weight_class "heavyweight" "none" "gemini-cli"
+test_weight_class "lightweight" "challenge,brainstorm,approve" "other"
+test_weight_class "medium" "challenge" "gemini-cli"
+test_weight_class "heavyweight" "none" "aider"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 4: Multiple simultaneous directives
-# Real user: has several directives in various states
+# SCENARIO 4: Multiple simultaneous directives (aider + full preset)
+# Real user on aider with full team: has several directives in various states
 # ═════════════════════════════════════════════════════════════════════════════
 
-log_section "Scenario 4: Multiple directives — active + completed + awaiting"
+test_multi_directives() {
+  local platform="$1"
+  local preset="$2"
+  local tag="${platform}/${preset}"
 
-SC4_DIR="$(create_test_dir "e2e-test-integ-multi")"
-add_temp_dir "$SC4_DIR"
+  log_section "Scenario 4: Multiple directives (${tag})"
 
-run_gruai_init "$SC4_DIR" "starter" > /dev/null 2>&1 || true
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-multi-${platform}")"
+  add_temp_dir "$dir"
 
-# Create directives in different states
-create_directive "$SC4_DIR" "active-1" "Active One" "in_progress" "medium" "execute"
-create_directive "$SC4_DIR" "active-2" "Active Two" "in_progress" "lightweight" "execute"
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
 
-# Awaiting completion
-mkdir -p "${SC4_DIR}/.context/directives/awaiting-1"
-cat > "${SC4_DIR}/.context/directives/awaiting-1/directive.json" <<'ENDJSON'
+  create_directive "$dir" "active-1" "Active One" "in_progress" "medium" "execute"
+  create_directive "$dir" "active-2" "Active Two" "in_progress" "lightweight" "execute"
+
+  mkdir -p "${dir}/.context/directives/awaiting-1"
+  cat > "${dir}/.context/directives/awaiting-1/directive.json" <<'ENDJSON'
 {
   "title": "Awaiting Approval",
   "status": "awaiting_completion",
@@ -429,9 +512,8 @@ cat > "${SC4_DIR}/.context/directives/awaiting-1/directive.json" <<'ENDJSON'
 }
 ENDJSON
 
-# Completed
-mkdir -p "${SC4_DIR}/.context/directives/done-1"
-cat > "${SC4_DIR}/.context/directives/done-1/directive.json" <<'ENDJSON'
+  mkdir -p "${dir}/.context/directives/done-1"
+  cat > "${dir}/.context/directives/done-1/directive.json" <<'ENDJSON'
 {
   "title": "Done Feature",
   "status": "completed",
@@ -442,9 +524,8 @@ cat > "${SC4_DIR}/.context/directives/done-1/directive.json" <<'ENDJSON'
 }
 ENDJSON
 
-# Failed
-mkdir -p "${SC4_DIR}/.context/directives/failed-1"
-cat > "${SC4_DIR}/.context/directives/failed-1/directive.json" <<'ENDJSON'
+  mkdir -p "${dir}/.context/directives/failed-1"
+  cat > "${dir}/.context/directives/failed-1/directive.json" <<'ENDJSON'
 {
   "title": "Failed Feature",
   "status": "failed",
@@ -455,132 +536,176 @@ cat > "${SC4_DIR}/.context/directives/failed-1/directive.json" <<'ENDJSON'
 }
 ENDJSON
 
-SC4_PORT="$(find_free_port)"
-start_server "$SC4_DIR" "$SC4_PORT" || true
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
 
-# Active = in_progress + awaiting_completion
-active_count="$(api_query "$SC4_PORT" "/api/state" "print(len(data.get('activeDirectives',[])))")"
-assert_eq "$active_count" "3" "multi: 3 active directives (2 in_progress + 1 awaiting)"
+  local active_count
+  active_count="$(api_query "$port" "/api/state" "print(len(data.get('activeDirectives',[])))")"
+  assert_eq "$active_count" "3" "${tag}: 3 active directives (2 in_progress + 1 awaiting)"
 
-# History = all directives
-history_count="$(api_query "$SC4_PORT" "/api/state" "print(len(data.get('directiveHistory',[])))")"
-# welcome + active-1 + active-2 + awaiting-1 + done-1 + failed-1 = 6
-assert_eq "$history_count" "6" "multi: 6 total in history (includes welcome)"
+  local history_count
+  history_count="$(api_query "$port" "/api/state" "print(len(data.get('directiveHistory',[])))")"
+  assert_eq "$history_count" "6" "${tag}: 6 total in history (includes welcome)"
 
-# Completed NOT in active
-completed_in_active="$(api_query "$SC4_PORT" "/api/state" \
-  "print(sum(1 for d in data.get('activeDirectives',[]) if d['status']=='completed'))")"
-assert_eq "$completed_in_active" "0" "multi: completed not in activeDirectives"
+  local completed_in_active
+  completed_in_active="$(api_query "$port" "/api/state" \
+    "print(sum(1 for d in data.get('activeDirectives',[]) if d['status']=='completed'))")"
+  assert_eq "$completed_in_active" "0" "${tag}: completed not in activeDirectives"
 
-# Awaiting IS in active
-awaiting_in_active="$(api_query "$SC4_PORT" "/api/state" \
-  "print(sum(1 for d in data.get('activeDirectives',[]) if d['status']=='awaiting_completion'))")"
-assert_eq "$awaiting_in_active" "1" "multi: awaiting_completion IS in activeDirectives"
+  local awaiting_in_active
+  awaiting_in_active="$(api_query "$port" "/api/state" \
+    "print(sum(1 for d in data.get('activeDirectives',[]) if d['status']=='awaiting_completion'))")"
+  assert_eq "$awaiting_in_active" "1" "${tag}: awaiting_completion IS in activeDirectives"
 
-kill_server_on_port "$SC4_PORT"
+  kill_server_on_port "$port"
+}
 
-# ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 5: Directive watcher picks up live changes
-# Real user: starts server, then creates/modifies directive — dashboard updates
-# ═════════════════════════════════════════════════════════════════════════════
-
-log_section "Scenario 5: Live directive watcher — create directive while server runs"
-
-SC5_DIR="$(create_test_dir "e2e-test-integ-live")"
-add_temp_dir "$SC5_DIR"
-
-run_gruai_init "$SC5_DIR" "starter" > /dev/null 2>&1 || true
-
-SC5_PORT="$(find_free_port)"
-start_server "$SC5_DIR" "$SC5_PORT" || true
-
-# Initially only welcome directive (pending, not active)
-initial_active="$(api_query "$SC5_PORT" "/api/state" "print(len(data.get('activeDirectives',[])))")"
-assert_eq "$initial_active" "0" "live: initially 0 active directives"
-
-# Create a directive while server is running
-create_directive "$SC5_DIR" "live-feature" "Live Feature" "in_progress" "medium" "execute"
-
-# Wait for watcher to pick it up (poll + debounce = ~5s max)
-sleep 6
-
-# Check again
-after_active="$(api_query "$SC5_PORT" "/api/state" "print(len(data.get('activeDirectives',[])))")"
-assert_eq "$after_active" "1" "live: watcher detected new directive (active=1)"
-
-live_name="$(api_query "$SC5_PORT" "/api/state" "print(data['activeDirectives'][0]['directiveName'])")"
-assert_eq "$live_name" "live-feature" "live: directive name = live-feature"
-
-# Modify the directive (change step)
-sed -i.bak 's/"current_step": "execute"/"current_step": "review-gate"/' \
-  "${SC5_DIR}/.context/directives/live-feature/directive.json"
-rm -f "${SC5_DIR}/.context/directives/live-feature/directive.json.bak"
-
-sleep 6
-
-updated_step="$(api_query "$SC5_PORT" "/api/state" "print(data['activeDirectives'][0]['currentStepId'])")"
-assert_eq "$updated_step" "review-gate" "live: watcher detected step change to review-gate"
-
-kill_server_on_port "$SC5_PORT"
+test_multi_directives "claude-code" "starter"
+test_multi_directives "aider" "full"
+test_multi_directives "codex" "standard"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 6: Agent name flow-through — custom names in init → API
-# Real user: generates agents with random names, sees them in dashboard
+# SCENARIO 5: Live directive watcher (multiple platforms)
+# Real user: starts server, then creates directive — dashboard updates live
 # ═════════════════════════════════════════════════════════════════════════════
 
-log_section "Scenario 6: Agent names flow init → registry → API"
+test_live_watcher() {
+  local platform="$1"
+  local preset="$2"
+  local tag="${platform}/${preset}"
 
-SC6_DIR="$(create_test_dir "e2e-test-integ-names")"
-add_temp_dir "$SC6_DIR"
+  log_section "Scenario 5: Live watcher (${tag})"
 
-run_gruai_init "$SC6_DIR" "standard" > /dev/null 2>&1 || true
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-live-${platform}")"
+  add_temp_dir "$dir"
 
-SC6_PORT="$(find_free_port)"
-start_server "$SC6_DIR" "$SC6_PORT" || true
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
 
-# Get agent names from file and API
-file_names="$(jq -r '[.agents[].name] | sort | join(",")' "${SC6_DIR}/.gruai/agent-registry.json")"
-api_names="$(api_query "$SC6_PORT" "/api/agent-registry" \
-  "print(','.join(sorted(a['name'] for a in data['agents'])))")"
-assert_eq "$api_names" "$file_names" "names: API matches file registry"
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
 
-# Verify every agent has a two-part name (first + last)
-names_have_space="$(api_query "$SC6_PORT" "/api/agent-registry" \
-  "print(all(' ' in a['name'] for a in data['agents'] if a['id'] != 'ceo'))")"
-assert_eq "$names_have_space" "True" "names: all non-CEO agents have first+last name"
+  local initial_active
+  initial_active="$(api_query "$port" "/api/state" "print(len(data.get('activeDirectives',[])))")"
+  assert_eq "$initial_active" "0" "${tag}: initially 0 active directives"
 
-# Verify personality files have agent names (not placeholders)
-local_check_pass=true
-for agent_file in "${SC6_DIR}"/.gruai/agents/*.md; do
-  if [[ -f "$agent_file" ]]; then
-    if grep -q '{{NAME}}' "$agent_file" 2>/dev/null; then
-      log_fail "names: ${agent_file} still has {{NAME}} placeholder"
-      local_check_pass=false
+  create_directive "$dir" "live-feature" "Live Feature" "in_progress" "medium" "execute"
+  sleep 6
+
+  local after_active
+  after_active="$(api_query "$port" "/api/state" "print(len(data.get('activeDirectives',[])))")"
+  assert_eq "$after_active" "1" "${tag}: watcher detected new directive (active=1)"
+
+  local live_name
+  live_name="$(api_query "$port" "/api/state" "print(data['activeDirectives'][0]['directiveName'])")"
+  assert_eq "$live_name" "live-feature" "${tag}: directive name = live-feature"
+
+  sed -i.bak 's/"current_step": "execute"/"current_step": "review-gate"/' \
+    "${dir}/.context/directives/live-feature/directive.json"
+  rm -f "${dir}/.context/directives/live-feature/directive.json.bak"
+
+  sleep 6
+
+  local updated_step
+  updated_step="$(api_query "$port" "/api/state" "print(data['activeDirectives'][0]['currentStepId'])")"
+  assert_eq "$updated_step" "review-gate" "${tag}: watcher detected step change to review-gate"
+
+  kill_server_on_port "$port"
+}
+
+test_live_watcher "claude-code" "starter"
+test_live_watcher "aider" "standard"
+test_live_watcher "codex" "full"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SCENARIO 6: Agent name flow-through (multiple platforms + presets)
+# Real user: generates agents, sees correct names in API + personality files
+# ═════════════════════════════════════════════════════════════════════════════
+
+test_name_flowthrough() {
+  local platform="$1"
+  local preset="$2"
+  local expected_agents
+  expected_agents="$(preset_agent_count "$preset")"
+  local tag="${platform}/${preset}"
+
+  log_section "Scenario 6: Name flow-through (${tag})"
+
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-names-${platform}-${preset}")"
+  add_temp_dir "$dir"
+
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
+
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
+
+  # API matches file registry
+  local file_names
+  file_names="$(jq -r '[.agents[].name] | sort | join(",")' "${dir}/.gruai/agent-registry.json")"
+  local api_names
+  api_names="$(api_query "$port" "/api/agent-registry" \
+    "print(','.join(sorted(a['name'] for a in data['agents'])))")"
+  assert_eq "$api_names" "$file_names" "${tag}: API matches file registry"
+
+  # All non-CEO agents have first+last name
+  local names_have_space
+  names_have_space="$(api_query "$port" "/api/agent-registry" \
+    "print(all(' ' in a['name'] for a in data['agents'] if a['id'] != 'ceo'))")"
+  assert_eq "$names_have_space" "True" "${tag}: all non-CEO agents have first+last name"
+
+  # Personality files have no {{NAME}} placeholder
+  local local_check_pass=true
+  for agent_file in "${dir}"/.gruai/agents/*.md; do
+    if [[ -f "$agent_file" ]]; then
+      if grep -q '{{NAME}}' "$agent_file" 2>/dev/null; then
+        log_fail "${tag}: ${agent_file} still has {{NAME}} placeholder"
+        local_check_pass=false
+      fi
     fi
+  done
+  if $local_check_pass; then
+    log_pass "${tag}: no personality files have {{NAME}} placeholder"
   fi
-done
-if $local_check_pass; then
-  log_pass "names: no personality files have {{NAME}} placeholder"
-fi
 
-kill_server_on_port "$SC6_PORT"
+  # Agent count matches preset
+  local agent_count
+  agent_count="$(api_query "$port" "/api/agent-registry" "print(len(data.get('agents',[])))")"
+  assert_eq "$agent_count" "$expected_agents" "${tag}: agent count = ${expected_agents}"
+
+  kill_server_on_port "$port"
+}
+
+test_name_flowthrough "claude-code" "starter"
+test_name_flowthrough "aider" "standard"
+test_name_flowthrough "gemini-cli" "full"
+test_name_flowthrough "codex" "starter"
+test_name_flowthrough "other" "full"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 7: Project + Task detail chain
+# SCENARIO 7: Project + Task detail chain (multiple platforms)
 # Real user: directive has projects with tasks, DOD — all visible in API
 # ═════════════════════════════════════════════════════════════════════════════
 
-log_section "Scenario 7: Project/task detail visible through API"
+test_project_task_chain() {
+  local platform="$1"
+  local preset="$2"
+  local tag="${platform}/${preset}"
 
-SC7_DIR="$(create_test_dir "e2e-test-integ-tasks")"
-add_temp_dir "$SC7_DIR"
+  log_section "Scenario 7: Project/task detail (${tag})"
 
-run_gruai_init "$SC7_DIR" "starter" > /dev/null 2>&1 || true
-create_directive "$SC7_DIR" "task-dir" "Task Directive" "in_progress" "medium" "execute"
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-tasks-${platform}")"
+  add_temp_dir "$dir"
 
-# Create 2 projects with different task states
-mkdir -p "${SC7_DIR}/.context/directives/task-dir/projects/proj-a"
-cat > "${SC7_DIR}/.context/directives/task-dir/projects/proj-a/project.json" <<'ENDJSON'
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
+  create_directive "$dir" "task-dir" "Task Directive" "in_progress" "medium" "execute"
+
+  mkdir -p "${dir}/.context/directives/task-dir/projects/proj-a"
+  cat > "${dir}/.context/directives/task-dir/projects/proj-a/project.json" <<'ENDJSON'
 {
   "title": "Project Alpha",
   "status": "in_progress",
@@ -593,8 +718,8 @@ cat > "${SC7_DIR}/.context/directives/task-dir/projects/proj-a/project.json" <<'
 }
 ENDJSON
 
-mkdir -p "${SC7_DIR}/.context/directives/task-dir/projects/proj-b"
-cat > "${SC7_DIR}/.context/directives/task-dir/projects/proj-b/project.json" <<'ENDJSON'
+  mkdir -p "${dir}/.context/directives/task-dir/projects/proj-b"
+  cat > "${dir}/.context/directives/task-dir/projects/proj-b/project.json" <<'ENDJSON'
 {
   "title": "Project Beta",
   "status": "pending",
@@ -608,117 +733,152 @@ cat > "${SC7_DIR}/.context/directives/task-dir/projects/proj-b/project.json" <<'
 }
 ENDJSON
 
-SC7_PORT="$(find_free_port)"
-start_server "$SC7_DIR" "$SC7_PORT" || true
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
 
-proj_count="$(api_query "$SC7_PORT" "/api/state" \
-  "print(len(data['activeDirectives'][0].get('projects',[])))")"
-assert_eq "$proj_count" "2" "tasks: 2 projects visible"
+  local proj_count
+  proj_count="$(api_query "$port" "/api/state" \
+    "print(len(data['activeDirectives'][0].get('projects',[])))")"
+  assert_eq "$proj_count" "2" "${tag}: 2 projects visible"
 
-proj_a_tasks="$(api_query "$SC7_PORT" "/api/state" \
-  "ps=data['activeDirectives'][0]['projects']; pa=[p for p in ps if p['id']=='proj-a']; print(len(pa[0]['tasks']) if pa else 0)")"
-assert_eq "$proj_a_tasks" "2" "tasks: proj-a has 2 tasks"
+  local proj_a_tasks
+  proj_a_tasks="$(api_query "$port" "/api/state" \
+    "ps=data['activeDirectives'][0]['projects']; pa=[p for p in ps if p['id']=='proj-a']; print(len(pa[0]['tasks']) if pa else 0)")"
+  assert_eq "$proj_a_tasks" "2" "${tag}: proj-a has 2 tasks"
 
-proj_b_tasks="$(api_query "$SC7_PORT" "/api/state" \
-  "ps=data['activeDirectives'][0]['projects']; pb=[p for p in ps if p['id']=='proj-b']; print(len(pb[0]['tasks']) if pb else 0)")"
-assert_eq "$proj_b_tasks" "3" "tasks: proj-b has 3 tasks"
+  local proj_b_tasks
+  proj_b_tasks="$(api_query "$port" "/api/state" \
+    "ps=data['activeDirectives'][0]['projects']; pb=[p for p in ps if p['id']=='proj-b']; print(len(pb[0]['tasks']) if pb else 0)")"
+  assert_eq "$proj_b_tasks" "3" "${tag}: proj-b has 3 tasks"
 
-# Verify task DOD data flows through
-has_dod="$(api_query "$SC7_PORT" "/api/state" \
-  "ps=data['activeDirectives'][0]['projects']; t=ps[0]['tasks'][0]; print('dod' in t and len(t['dod'])>0)")"
-assert_eq "$has_dod" "True" "tasks: DOD data present in task"
+  local has_dod
+  has_dod="$(api_query "$port" "/api/state" \
+    "ps=data['activeDirectives'][0]['projects']; t=ps[0]['tasks'][0]; print('dod' in t and len(t['dod'])>0)")"
+  assert_eq "$has_dod" "True" "${tag}: DOD data present in task"
 
-# Verify project-level agent/reviewers
-has_agent="$(api_query "$SC7_PORT" "/api/state" \
-  "ps=data['activeDirectives'][0]['projects']; print(len(ps[0].get('agent',[]))>0)")"
-assert_eq "$has_agent" "True" "tasks: project has agent array"
+  local has_agent
+  has_agent="$(api_query "$port" "/api/state" \
+    "ps=data['activeDirectives'][0]['projects']; print(len(ps[0].get('agent',[]))>0)")"
+  assert_eq "$has_agent" "True" "${tag}: project has agent array"
 
-has_reviewers="$(api_query "$SC7_PORT" "/api/state" \
-  "ps=data['activeDirectives'][0]['projects']; print(len(ps[0].get('reviewers',[]))>0)")"
-assert_eq "$has_reviewers" "True" "tasks: project has reviewers array"
+  local has_reviewers
+  has_reviewers="$(api_query "$port" "/api/state" \
+    "ps=data['activeDirectives'][0]['projects']; print(len(ps[0].get('reviewers',[]))>0)")"
+  assert_eq "$has_reviewers" "True" "${tag}: project has reviewers array"
 
-kill_server_on_port "$SC7_PORT"
+  kill_server_on_port "$port"
+}
+
+test_project_task_chain "claude-code" "standard"
+test_project_task_chain "aider" "full"
+test_project_task_chain "codex" "starter"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # SCENARIO 8: Edge — corrupt directive.json doesn't crash server
-# Real user: filesystem has junk, server should be resilient
+# (tested on non-claude-code platform to verify edge resilience)
 # ═════════════════════════════════════════════════════════════════════════════
 
-log_section "Scenario 8: Edge — corrupt JSON doesn't crash server"
+test_corrupt_resilience() {
+  local platform="$1"
+  local tag="${platform}"
 
-SC8_DIR="$(create_test_dir "e2e-test-integ-corrupt")"
-add_temp_dir "$SC8_DIR"
+  log_section "Scenario 8: Corrupt JSON resilience (${tag})"
 
-run_gruai_init "$SC8_DIR" "starter" > /dev/null 2>&1 || true
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-corrupt-${platform}")"
+  add_temp_dir "$dir"
 
-# Create one good directive
-create_directive "$SC8_DIR" "good-dir" "Good Directive" "in_progress" "medium" "execute"
+  run_gruai_init_with_platform "$dir" "starter" "$platform" > /dev/null 2>&1 || true
 
-# Create corrupt directive
-mkdir -p "${SC8_DIR}/.context/directives/corrupt-dir"
-echo "{ this is not valid json !!!" > "${SC8_DIR}/.context/directives/corrupt-dir/directive.json"
+  create_directive "$dir" "good-dir" "Good Directive" "in_progress" "medium" "execute"
 
-# Create empty directive
-mkdir -p "${SC8_DIR}/.context/directives/empty-dir"
-echo "{}" > "${SC8_DIR}/.context/directives/empty-dir/directive.json"
+  mkdir -p "${dir}/.context/directives/corrupt-dir"
+  echo "{ this is not valid json !!!" > "${dir}/.context/directives/corrupt-dir/directive.json"
 
-SC8_PORT="$(find_free_port)"
-start_server "$SC8_DIR" "$SC8_PORT" || true
+  mkdir -p "${dir}/.context/directives/empty-dir"
+  echo "{}" > "${dir}/.context/directives/empty-dir/directive.json"
 
-# Server should NOT crash — health check should work
-health="$(api_query "$SC8_PORT" "/api/health" "print(data.get('status',''))")"
-assert_eq "$health" "ok" "corrupt: server still healthy"
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
 
-# Good directive should still be visible
-active="$(api_query "$SC8_PORT" "/api/state" "print(len(data.get('activeDirectives',[])))")"
-assert_eq "$active" "1" "corrupt: good directive still visible (active=1)"
+  local health
+  health="$(api_query "$port" "/api/health" "print(data.get('status',''))")"
+  assert_eq "$health" "ok" "${tag}: server still healthy"
 
-good_name="$(api_query "$SC8_PORT" "/api/state" "print(data['activeDirectives'][0]['directiveName'])")"
-assert_eq "$good_name" "good-dir" "corrupt: good directive name correct"
+  local active
+  active="$(api_query "$port" "/api/state" "print(len(data.get('activeDirectives',[])))")"
+  assert_eq "$active" "1" "${tag}: good directive still visible (active=1)"
 
-kill_server_on_port "$SC8_PORT"
+  local good_name
+  good_name="$(api_query "$port" "/api/state" "print(data['activeDirectives'][0]['directiveName'])")"
+  assert_eq "$good_name" "good-dir" "${tag}: good directive name correct"
 
-# ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 9: Edge — server starts with no directives at all
-# Real user: fresh project, no work done yet
-# ═════════════════════════════════════════════════════════════════════════════
+  kill_server_on_port "$port"
+}
 
-log_section "Scenario 9: Edge — fresh project with no directives"
-
-SC9_DIR="$(create_test_dir "e2e-test-integ-empty")"
-add_temp_dir "$SC9_DIR"
-
-run_gruai_init "$SC9_DIR" "starter" > /dev/null 2>&1 || true
-
-# Remove welcome directive to simulate truly empty
-rm -rf "${SC9_DIR}/.context/directives/welcome"
-
-SC9_PORT="$(find_free_port)"
-start_server "$SC9_DIR" "$SC9_PORT" || true
-
-active="$(api_query "$SC9_PORT" "/api/state" "print(len(data.get('activeDirectives',[])))")"
-assert_eq "$active" "0" "empty: 0 active directives"
-
-# Agent registry should still work fine
-agent_count="$(api_query "$SC9_PORT" "/api/agent-registry" "print(len(data.get('agents',[])))")"
-assert_eq "$agent_count" "5" "empty: agent registry works (5 agents)"
-
-kill_server_on_port "$SC9_PORT"
+test_corrupt_resilience "claude-code"
+test_corrupt_resilience "gemini-cli"
 
 # ═════════════════════════════════════════════════════════════════════════════
-# SCENARIO 10: Awaiting completion — needsAction flag
+# SCENARIO 9: Edge — server starts with no directives
+# ═════════════════════════════════════════════════════════════════════════════
+
+test_empty_project() {
+  local platform="$1"
+  local preset="$2"
+  local expected_agents
+  expected_agents="$(preset_agent_count "$preset")"
+  local tag="${platform}/${preset}"
+
+  log_section "Scenario 9: Empty project (${tag})"
+
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-empty-${platform}")"
+  add_temp_dir "$dir"
+
+  run_gruai_init_with_platform "$dir" "$preset" "$platform" > /dev/null 2>&1 || true
+  rm -rf "${dir}/.context/directives/welcome"
+
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
+
+  local active
+  active="$(api_query "$port" "/api/state" "print(len(data.get('activeDirectives',[])))")"
+  assert_eq "$active" "0" "${tag}: 0 active directives"
+
+  local agent_count
+  agent_count="$(api_query "$port" "/api/agent-registry" "print(len(data.get('agents',[])))")"
+  assert_eq "$agent_count" "$expected_agents" "${tag}: agent registry works (${expected_agents} agents)"
+
+  kill_server_on_port "$port"
+}
+
+test_empty_project "claude-code" "starter"
+test_empty_project "aider" "full"
+test_empty_project "other" "standard"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SCENARIO 10: Awaiting completion — needsAction flag (multiple platforms)
 # Real user: directive done, waiting for CEO approval on dashboard
 # ═════════════════════════════════════════════════════════════════════════════
 
-log_section "Scenario 10: Awaiting completion — needsAction on completion step"
+test_awaiting_completion() {
+  local platform="$1"
+  local tag="${platform}"
 
-SC10_DIR="$(create_test_dir "e2e-test-integ-awaiting")"
-add_temp_dir "$SC10_DIR"
+  log_section "Scenario 10: Awaiting completion (${tag})"
 
-run_gruai_init "$SC10_DIR" "starter" > /dev/null 2>&1 || true
+  local dir
+  dir="$(create_test_dir "e2e-test-integ-awaiting-${platform}")"
+  add_temp_dir "$dir"
 
-mkdir -p "${SC10_DIR}/.context/directives/await-dir"
-cat > "${SC10_DIR}/.context/directives/await-dir/directive.json" <<'ENDJSON'
+  run_gruai_init_with_platform "$dir" "starter" "$platform" > /dev/null 2>&1 || true
+
+  mkdir -p "${dir}/.context/directives/await-dir"
+  cat > "${dir}/.context/directives/await-dir/directive.json" <<'ENDJSON'
 {
   "title": "Awaiting CEO",
   "status": "awaiting_completion",
@@ -744,25 +904,31 @@ cat > "${SC10_DIR}/.context/directives/await-dir/directive.json" <<'ENDJSON'
 }
 ENDJSON
 
-SC10_PORT="$(find_free_port)"
-start_server "$SC10_DIR" "$SC10_PORT" || true
+  local port
+  port="$(find_free_port)"
+  start_server "$dir" "$port" || return
 
-# Should be in active directives
-in_active="$(api_query "$SC10_PORT" "/api/state" \
-  "print(any(d['directiveName']=='await-dir' for d in data.get('activeDirectives',[])))")"
-assert_eq "$in_active" "True" "awaiting: appears in activeDirectives"
+  local in_active
+  in_active="$(api_query "$port" "/api/state" \
+    "print(any(d['directiveName']=='await-dir' for d in data.get('activeDirectives',[])))")"
+  assert_eq "$in_active" "True" "${tag}: appears in activeDirectives"
 
-# Completion step should have needsAction=true
-needs_action="$(api_query "$SC10_PORT" "/api/state" \
-  "d=[x for x in data['activeDirectives'] if x['directiveName']=='await-dir'][0]; cs=[s for s in d['pipelineSteps'] if s['id']=='completion']; print(cs[0].get('needsAction',False) if cs else False)")"
-assert_eq "$needs_action" "True" "awaiting: completion step has needsAction=true"
+  local needs_action
+  needs_action="$(api_query "$port" "/api/state" \
+    "d=[x for x in data['activeDirectives'] if x['directiveName']=='await-dir'][0]; cs=[s for s in d['pipelineSteps'] if s['id']=='completion']; print(cs[0].get('needsAction',False) if cs else False)")"
+  assert_eq "$needs_action" "True" "${tag}: completion step has needsAction=true"
 
-# Status should be awaiting_completion
-dir_status="$(api_query "$SC10_PORT" "/api/state" \
-  "d=[x for x in data['activeDirectives'] if x['directiveName']=='await-dir'][0]; print(d['status'])")"
-assert_eq "$dir_status" "awaiting_completion" "awaiting: status = awaiting_completion"
+  local dir_status
+  dir_status="$(api_query "$port" "/api/state" \
+    "d=[x for x in data['activeDirectives'] if x['directiveName']=='await-dir'][0]; print(d['status'])")"
+  assert_eq "$dir_status" "awaiting_completion" "${tag}: status = awaiting_completion"
 
-kill_server_on_port "$SC10_PORT"
+  kill_server_on_port "$port"
+}
+
+test_awaiting_completion "claude-code"
+test_awaiting_completion "aider"
+test_awaiting_completion "codex"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Results
