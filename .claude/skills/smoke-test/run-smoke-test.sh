@@ -460,19 +460,19 @@ while true; do
     esac
   done
 
-  # Check if directive status is completed or awaiting_completion
+  # Check if directive status is completed (NOT awaiting_completion — that means
+  # the completion gate is still running; test_mode will auto-approve shortly)
   directive_status="$(read_directive_field ".status")"
-  if [[ "$directive_status" == "completed" || "$directive_status" == "awaiting_completion" ]]; then
-    # Mark completion step if directive is fully completed
+  if [[ "$directive_status" == "completed" ]]; then
     completion_idx="$(step_index "completion")"
-    if [[ "$directive_status" == "completed" && "$completion_idx" -ge 0 ]]; then
+    if [[ "$completion_idx" -ge 0 ]]; then
       if [[ "${STEP_STATUS[$completion_idx]}" == "pending" || "${STEP_STATUS[$completion_idx]}" == "active" ]]; then
         STEP_STATUS[$completion_idx]="completed"
         STEP_GATE[$completion_idx]="PASS"
         STEP_EVIDENCE[$completion_idx]="test_mode auto-approved"
       fi
     fi
-    log "Directive status: ${directive_status}"
+    log "Directive status: completed"
     break
   fi
 

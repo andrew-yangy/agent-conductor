@@ -85,14 +85,18 @@ TARGET_STEP="$2"
 TASK_ID="${3:-}"
 
 # Resolve to repo root for consistent paths
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-
-# If directive-dir is relative, make it relative to repo root
-if [[ ! "$DIRECTIVE_DIR" = /* ]]; then
+# If directive-dir is absolute and contains .context/directives/, derive repo root
+# from it (supports worktrees where git rev-parse returns the wrong root).
+if [[ "$DIRECTIVE_DIR" = /* ]] && [[ "$DIRECTIVE_DIR" == */.context/directives/* ]]; then
+  REPO_ROOT="${DIRECTIVE_DIR%%/.context/directives/*}"
+  DIRECTIVE_DIR_ABS="$DIRECTIVE_DIR"
+  DIRECTIVE_DIR="${DIRECTIVE_DIR#${REPO_ROOT}/}"
+elif [[ ! "$DIRECTIVE_DIR" = /* ]]; then
+  REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   DIRECTIVE_DIR_ABS="${REPO_ROOT}/${DIRECTIVE_DIR}"
 else
+  REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   DIRECTIVE_DIR_ABS="$DIRECTIVE_DIR"
-  # Make relative for output
   DIRECTIVE_DIR="${DIRECTIVE_DIR#${REPO_ROOT}/}"
 fi
 
