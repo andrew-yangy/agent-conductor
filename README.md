@@ -18,11 +18,9 @@
   <a href="#the-context-tree">Context Tree</a>
 </p>
 
-<p align="center">
-  <video src="docs/assets/demo.mp4" width="720" autoplay loop muted playsinline>
-    <img src="docs/assets/game-office.png" alt="gruAI pixel-art office with agents working" width="720" />
-  </video>
-</p>
+<div align="center">
+  <video src="https://github.com/user-attachments/assets/8859bc1f-8a04-47ac-9f94-35b9c71741eb" width="720" controls></video>
+</div>
 
 ---
 
